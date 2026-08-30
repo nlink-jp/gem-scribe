@@ -1,0 +1,28 @@
+# gem-scribe configuration — copy to ~/.config/gem-scribe/config.toml
+#
+# Precedence: CLI flags > GEMSCRIBE_* > GOOGLE_CLOUD_* > this file > defaults.
+
+[gcp]
+project  = "your-project-id"
+# The Gemini 3 family is served from the global endpoint only. A regional
+# location returns 404 for these models.
+location = "global"
+
+[model]
+name = "gemini-3.5-transcribe-preview"
+
+[transcribe]
+diarization    = true
+word_timestamp = true
+
+# The general model used for work the transcription model cannot do:
+# translating the transcript and attributing real names to speaker labels.
+[second_pass]
+model    = "gemini-3.7-flash"
+location = ""    # empty: the same location as the transcription
+
+# Only needed for audio above the inline threshold (20 MB). Leave empty to run
+# inline-only — short recordings never touch Cloud Storage.
+[staging]
+bucket      = ""
+keep_staged = false
