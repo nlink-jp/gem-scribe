@@ -29,7 +29,7 @@ func registerTranscribe(srv *mcpserver.Server, d *Deps) {
   "required": ["audio"],
   "properties": {
     "audio": {"type": "string", "description": "Recording path, relative to the workspace"},
-    "workspace_root": {"type": "string", "description": "Absolute path of an agent-prepared workspace root"},
+    "workspace_root": {"type": "string", "description": "Absolute path to a workspace root you prepared and can read back. Pass your own session or working directory when you have one: results come back as paths, so a workspace you cannot open leaves you holding a path to nothing."},
     "workspace_id": {"type": "string", "description": "Workspace within the root; defaults to \"default\""},
     "model": {"type": "string", "description": "Transcription model; omit to use the configured one"},
     "languages": {"type": "array", "items": {"type": "string"}, "description": "BCP-47 hints such as [\"ja-JP\"]; omit to detect"},

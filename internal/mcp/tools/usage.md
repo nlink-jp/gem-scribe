@@ -20,8 +20,10 @@ transcription project:
 └── output/              ← the server writes transcripts here, and nowhere else
 ```
 
-- `workspace_root` — absolute path of a directory you control. Omit it and the
-  server uses its own default root.
+- `workspace_root` — absolute path of a directory you control, and can read
+  back: you put the recording there and the transcript comes back as a path
+  under it. Omit it and the server uses its own default root, which is only
+  useful if that is reachable from your side too.
 - `workspace_id` — `[a-zA-Z0-9_-]{1,64}`, defaults to `default`.
 - Every path argument is **relative to the workspace** and cannot escape it.
   Absolute paths and `..` are refused (`path_not_allowed`), and symlinks planted
