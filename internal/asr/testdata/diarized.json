@@ -1,0 +1,221 @@
+{
+ "candidates": [
+  {
+   "content": {
+    "role": "model",
+    "parts": [
+     {
+      "text": "田中です。本日はお集まりいただきありがとうございます。",
+      "audioTranscription": {
+       "text": "田中です。本日はお集まりいただきありがとうございます。",
+       "speakerLabel": "spk:0",
+       "words": [
+        {
+         "word": "田中",
+         "startOffset": "0.100s",
+         "endOffset": "0.500s"
+        },
+        {
+         "word": "です。",
+         "startOffset": "0.500s",
+         "endOffset": "0.900s"
+        },
+        {
+         "word": "本日",
+         "startOffset": "1s",
+         "endOffset": "1.600s"
+        },
+        {
+         "word": "は",
+         "startOffset": "1.600s",
+         "endOffset": "1.800s"
+        },
+        {
+         "word": "お",
+         "startOffset": "1.900s",
+         "endOffset": "1.800s"
+        },
+        {
+         "word": "集まり",
+         "startOffset": "1.800s",
+         "endOffset": "2.500s"
+        },
+        {
+         "word": "いただき",
+         "startOffset": "2.500s",
+         "endOffset": "3.100s"
+        },
+        {
+         "word": "ありがとう",
+         "startOffset": "3.100s",
+         "endOffset": "3.700s"
+        },
+        {
+         "word": "ござい",
+         "startOffset": "3.700s",
+         "endOffset": "4.300s"
+        },
+        {
+         "word": "ます。",
+         "startOffset": "4.300s",
+         "endOffset": "4.400s"
+        }
+       ]
+      }
+     },
+     {
+      "text": "佐藤です。よろしくお願いいたします。資料を共有します。",
+      "audioTranscription": {
+       "text": "佐藤です。よろしくお願いいたします。資料を共有します。",
+       "speakerLabel": "spk:1",
+       "words": [
+        {
+         "word": "佐藤",
+         "startOffset": "5.300s",
+         "endOffset": "5.700s"
+        },
+        {
+         "word": "です。",
+         "startOffset": "5.700s",
+         "endOffset": "6.100s"
+        },
+        {
+         "word": "よろしく",
+         "startOffset": "6.300s",
+         "endOffset": "6.800s"
+        },
+        {
+         "word": "お",
+         "startOffset": "6.800s",
+         "endOffset": "6.900s"
+        },
+        {
+         "word": "願い",
+         "startOffset": "6.900s",
+         "endOffset": "7.300s"
+        },
+        {
+         "word": "いた",
+         "startOffset": "7.300s",
+         "endOffset": "7.500s"
+        },
+        {
+         "word": "し",
+         "startOffset": "7.500s",
+         "endOffset": "7.800s"
+        },
+        {
+         "word": "ます。",
+         "startOffset": "7.800s",
+         "endOffset": "8.200s"
+        },
+        {
+         "word": "資料",
+         "startOffset": "8.300s",
+         "endOffset": "8.700s"
+        },
+        {
+         "word": "を",
+         "startOffset": "8.700s",
+         "endOffset": "8.800s"
+        },
+        {
+         "word": "共有",
+         "startOffset": "8.800s",
+         "endOffset": "9.400s"
+        },
+        {
+         "word": "し",
+         "startOffset": "9.400s",
+         "endOffset": "9.500s"
+        },
+        {
+         "word": "ます。",
+         "startOffset": "9.500s",
+         "endOffset": "9.800s"
+        }
+       ]
+      }
+     },
+     {
+      "text": "ありがとうございます。では議題に入りましょう。",
+      "audioTranscription": {
+       "text": "ありがとうございます。では議題に入りましょう。",
+       "speakerLabel": "spk:0",
+       "words": [
+        {
+         "word": "ありがとう",
+         "startOffset": "10.700s",
+         "endOffset": "11.300s"
+        },
+        {
+         "word": "ござい",
+         "startOffset": "11.300s",
+         "endOffset": "11.700s"
+        },
+        {
+         "word": "ます。",
+         "startOffset": "11.700s",
+         "endOffset": "12.200s"
+        },
+        {
+         "word": "で",
+         "startOffset": "12.300s",
+         "endOffset": "12.400s"
+        },
+        {
+         "word": "は",
+         "startOffset": "12.400s",
+         "endOffset": "12.600s"
+        },
+        {
+         "word": "議題",
+         "startOffset": "12.600s",
+         "endOffset": "12.900s"
+        },
+        {
+         "word": "に",
+         "startOffset": "12.900s",
+         "endOffset": "13.100s"
+        },
+        {
+         "word": "入り",
+         "startOffset": "13.100s",
+         "endOffset": "13.500s"
+        },
+        {
+         "word": "ましょう。",
+         "startOffset": "13.500s",
+         "endOffset": "13.900s"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "finishReason": "STOP"
+  }
+ ],
+ "usageMetadata": {
+  "promptTokenCount": 367,
+  "candidatesTokenCount": 32,
+  "totalTokenCount": 399,
+  "trafficType": "ON_DEMAND",
+  "promptTokensDetails": [
+   {
+    "modality": "AUDIO",
+    "tokenCount": 349
+   },
+   {
+    "modality": "TEXT",
+    "tokenCount": 18
+   }
+  ],
+  "candidatesTokensDetails": [
+   {
+    "modality": "TEXT",
+    "tokenCount": 32
+   }
+  ]
+ }
+}
