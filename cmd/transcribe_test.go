@@ -2,12 +2,14 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/nlink-jp/gem-scribe/internal/asr"
+	"github.com/nlink-jp/gem-scribe/internal/config"
 	"github.com/nlink-jp/gem-scribe/internal/transcript"
 )
 
@@ -91,5 +93,24 @@ func TestWriteFiles_SingleFileKeepsTheGivenName(t *testing.T) {
 func TestFormatNames_CoversEveryFormat(t *testing.T) {
 	if len(formatNames()) != len(transcript.Formats()) {
 		t.Errorf("help text lists %d formats but %d exist", len(formatNames()), len(transcript.Formats()))
+	}
+}
+
+// The second pass must not be constructed when nothing asked for it: building
+// a client would demand a project and credentials from a run that needs
+// neither, turning an optional feature into a prerequisite.
+func TestEnrichResult_NoOpWithoutARequest(t *testing.T) {
+	result := transcript.Result{
+		Metadata: transcript.Metadata{Source: "x", Model: "m", Languages: []string{"ja"}},
+		Segments: []transcript.Segment{{Start: 0, End: 1, Speaker: "spk:0", Text: map[string]string{"ja": "a"}}},
+	}
+	result.Normalize()
+
+	// An empty config would fail RequireProject if a client were built.
+	if err := enrichResult(context.Background(), &config.Config{}, &result, "", nil, func(string) {}); err != nil {
+		t.Fatalf("enrichResult with nothing requested: %v", err)
+	}
+	if result.Metadata.Translated {
+		t.Error("nothing was requested but the result claims a translation")
 	}
 }

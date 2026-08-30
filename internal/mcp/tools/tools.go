@@ -47,6 +47,12 @@ type Request struct {
 	// Smart asks for disfluency removal and light formatting. It cannot be
 	// combined with the two flags above.
 	Smart bool
+	// TranslateTo adds a translation beside the original, in a second pass
+	// over the transcript text. Empty means no translation.
+	TranslateTo string
+	// SpeakerHints are candidate names assigned to spk:N in that same second
+	// pass. Empty means the labels stay as the model produced them.
+	SpeakerHints []string
 }
 
 // Deps carries the shared dependencies of all tools.

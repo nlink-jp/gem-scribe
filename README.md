@@ -51,6 +51,9 @@ gem-scribe gs://my-bucket/interview.flac -f md -o interview.md
 
 # Clean prose instead of a verbatim transcript (no speakers, no timings)
 gem-scribe talk.wav --smart -f text
+
+# Name the speakers and add an English translation beside the original
+gem-scribe meeting.m4a --lang ja-JP --speaker-hint 田中,佐藤 --translate en
 ```
 
 ### Flags
@@ -66,6 +69,8 @@ gem-scribe talk.wav --smart -f text
 | `-m, --model` | config | Transcription model |
 | `--location` | `global` | Vertex AI location |
 | `-c, --config` | — | Config file path |
+| `--translate` | — | Add a translation beside the original, e.g. `--translate en` |
+| `--speaker-hint` | — | Candidate names, assigned to `spk:N` (repeatable) |
 | `-q, --quiet` | `false` | No progress on stderr |
 
 ### Output
@@ -87,6 +92,19 @@ gem-scribe talk.wav --smart -f text
 
 `text` is a language-code map rather than a string, which is what lets a
 translation sit beside the original. voice-scribe uses the same shape.
+
+### The second pass
+
+The transcription model does not translate, and it labels speakers `spk:0`
+rather than by name. `--translate` and `--speaker-hint` are a second call to a
+general model **over the transcript text**, run once the transcript exists.
+
+That ordering is the safety property, and it is why this does not reintroduce
+the fragility the tool was built to remove. The segments are already fixed; the
+second pass only fills slots in them. A line the model does not return keeps
+its original text, a speaker it cannot identify keeps its label, and either way
+you are told how much was left behind. A failure costs an enrichment, never the
+transcript.
 
 ## MCP server
 

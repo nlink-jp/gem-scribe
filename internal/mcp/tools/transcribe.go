@@ -37,6 +37,8 @@ func registerTranscribe(srv *mcpserver.Server, d *Deps) {
     "word_timestamps": {"type": "boolean", "description": "Attach word-level timings (default true). Required for srt and vtt"},
     "smart": {"type": "boolean", "description": "Remove disfluencies and format lightly. Cannot be combined with diarize or word_timestamps"},
     "format": {"type": "string", "enum": ["json", "text", "md", "srt", "vtt"], "description": "Default json"},
+    "translate_to": {"type": "string", "description": "Add a translation beside the original, e.g. \"en\". A second pass over the transcript text"},
+    "speaker_hints": {"type": "array", "items": {"type": "string"}, "description": "Candidate speaker names, assigned to spk:N in the same second pass"},
     "output": {"type": "string", "description": "Transcript path relative to the workspace; defaults under output/"},
     "inline_threshold": {"type": "integer", "minimum": 0, "description": "Bytes at or below which the transcript is returned inline"}
   },
@@ -52,6 +54,8 @@ func registerTranscribe(srv *mcpserver.Server, d *Deps) {
 			Diarize         *bool    `json:"diarize"`
 			WordTimestamps  *bool    `json:"word_timestamps"`
 			Smart           bool     `json:"smart"`
+			TranslateTo     string   `json:"translate_to"`
+			SpeakerHints    []string `json:"speaker_hints"`
 			Format          string   `json:"format"`
 			Output          string   `json:"output"`
 			InlineThreshold int      `json:"inline_threshold"`
@@ -82,11 +86,17 @@ func registerTranscribe(srv *mcpserver.Server, d *Deps) {
 			Diarize:        boolOr(in.Diarize, !in.Smart),
 			WordTimestamps: boolOr(in.WordTimestamps, !in.Smart),
 			Smart:          in.Smart,
+			TranslateTo:    in.TranslateTo,
+			SpeakerHints:   in.SpeakerHints,
 		}
 		if err := (asr.Options{
 			Diarize: req.Diarize, WordTimestamps: req.WordTimestamps, Smart: req.Smart,
 		}).Validate(); err != nil {
 			return nil, toolerr.Newf(toolerr.CodeModeConflict, "%v", err)
+		}
+		if len(req.SpeakerHints) > 0 && !req.Diarize {
+			return nil, toolerr.New(toolerr.CodeInvalidArguments,
+				"speaker_hints needs diarization: without it there are no speaker labels to assign names to")
 		}
 		if (format == transcript.FormatSRT || format == transcript.FormatVTT) && !req.WordTimestamps {
 			return nil, toolerr.Newf(toolerr.CodeInvalidArguments,

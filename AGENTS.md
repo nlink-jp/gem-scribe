@@ -39,6 +39,7 @@ gem-scribe/
 ├── internal/
 │   ├── config/            ← TOML + GEMSCRIBE_* / GOOGLE_CLOUD_* env
 │   ├── asr/               ← Vertex AI client (asr.go) + response mapping (parse.go)
+│   ├── enrich/            ← second pass: translation and speaker naming, over text
 │   ├── staging/           ← inline-vs-GCS decision, upload and cleanup
 │   ├── transcript/        ← output envelope, formatters, diagnosis
 │   └── mcp/               ← jsonrpc, transport, mcpserver, job, workspace, tools
@@ -79,6 +80,15 @@ Everything here was measured, not assumed.
 - **Inline requests accept far more than documented** — 87 MB of audio was
   measured to work — but `staging.InlineLimitBytes` stays at 20 MB because that
   headroom is not a contract.
+- **The second pass never lets a model author structure either** (ADR-0001
+  applies to it). Translation uses a numbered-line protocol: we number the
+  slots, the model fills them, and a line that does not come back keeps its
+  original. Never replace this with "ask for a JSON array of segments" — that
+  is the exact failure the tool was built to remove, reintroduced one layer
+  later.
+- **A partial second pass must stay visible.** `transcript.Diagnose` derives
+  the untranslated count and unresolved labels from the result itself rather
+  than trusting a recorded number, so it stays true whichever path produced it.
 - **The transcription model is preview.** No GA equivalent exists. The
   second-pass model is deliberately GA so a supporting stage does not inherit a
   preview retirement schedule.

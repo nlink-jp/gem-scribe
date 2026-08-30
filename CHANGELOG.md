@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Translation and speaker naming** — `--translate en` adds a translation
+  beside the original, and `--speaker-hint 田中,佐藤` assigns real names to the
+  model's `spk:N` labels. Both are exposed on the MCP `transcribe` tool as
+  `translate_to` and `speaker_hints`. This is the capability gem-transcribe had
+  and this tool did not.
+- Both run as a second pass **over the transcript text**, after the transcript
+  exists, and neither lets a model author structure: translation numbers the
+  slots and reads back the numbers, so a line that does not return keeps its
+  original text rather than costing the transcript. A speaker label the
+  transcript does not identify keeps its label — omitting is correct where
+  guessing is not.
+- Two diagnoses for the failure that looks most like success: a partially
+  translated transcript and speaker labels a naming pass left unresolved. Both
+  are derived from the result rather than from a recorded count, and surface as
+  `warning` in MCP results and on stderr in the CLI.
+- `speaker_hints` without diarization is refused rather than silently ignored —
+  there are no labels to assign names to.
+
 ## [0.1.0] - 2026-08-30
 
 ### Added

@@ -50,6 +50,9 @@ gem-scribe gs://my-bucket/interview.flac -f md -o interview.md
 
 # 逐語ではなく整形された文章（話者・時刻は付かない）
 gem-scribe talk.wav --smart -f text
+
+# 話者に実名を割り当て、原文の隣に英訳を付ける
+gem-scribe meeting.m4a --lang ja-JP --speaker-hint 田中,佐藤 --translate en
 ```
 
 ### フラグ
@@ -65,6 +68,8 @@ gem-scribe talk.wav --smart -f text
 | `-m, --model` | 設定値 | 文字起こしモデル |
 | `--location` | `global` | Vertex AI のロケーション |
 | `-c, --config` | — | 設定ファイルのパス |
+| `--translate` | — | 原文の隣に翻訳を追加。例 `--translate en` |
+| `--speaker-hint` | — | 話者名の候補。`spk:N` に割り当てる（複数指定可） |
 | `-q, --quiet` | `false` | stderr への進捗表示を止める |
 
 ### 出力
@@ -86,6 +91,17 @@ gem-scribe talk.wav --smart -f text
 
 `text` が文字列ではなく「言語コード → テキスト」のマップなのは、原文の隣に翻訳を
 置けるようにするため。voice-scribe も同じ形を使う。
+
+### 第2パス
+
+文字起こしモデルは翻訳をせず、話者も `spk:0` としか返さない。`--translate` と
+`--speaker-hint` は、**転写テキストに対する**汎用モデルへの2回目の呼び出しで、
+文字起こしが完成した後に走る。
+
+この順序が安全性の要で、本ツールが取り除いた脆さを持ち込まない理由でもある。
+セグメントは既に確定しており、第2パスはその中のスロットを埋めるだけ。返ってこなかった
+行は原文のまま残り、特定できなかった話者はラベルのまま残り、どちらの場合も**どれだけ
+残ったかが通知される**。失敗が失うのは付加情報であって、文字起こし本体ではない。
 
 ## MCP サーバ
 

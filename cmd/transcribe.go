@@ -12,6 +12,7 @@ import (
 
 	"github.com/nlink-jp/gem-scribe/internal/asr"
 	"github.com/nlink-jp/gem-scribe/internal/config"
+	"github.com/nlink-jp/gem-scribe/internal/enrich"
 	"github.com/nlink-jp/gem-scribe/internal/staging"
 	"github.com/nlink-jp/gem-scribe/internal/transcript"
 	"github.com/spf13/cobra"
@@ -27,6 +28,8 @@ var (
 	flagWordTimes bool
 	flagSmart     bool
 	flagQuiet     bool
+	flagTranslate string
+	flagSpeakers  []string
 )
 
 func init() {
@@ -42,6 +45,10 @@ func init() {
 	f.BoolVar(&flagWordTimes, "word-timestamps", true, "Ask for word-level timings, which give segments their start and end")
 	f.BoolVar(&flagSmart, "smart", false, "Remove disfluencies and format lightly (cannot be combined with --diarize or --word-timestamps)")
 	f.BoolVarP(&flagQuiet, "quiet", "q", false, "Suppress progress reporting on stderr")
+	f.StringVar(&flagTranslate, "translate", "",
+		"Add a translation beside the original, e.g. --translate en (a second pass over the transcript text)")
+	f.StringSliceVar(&flagSpeakers, "speaker-hint", nil,
+		"Candidate speaker names; assigns them to spk:N in a second pass (repeatable)")
 
 	rootCmd.Args = cobra.MaximumNArgs(1)
 	rootCmd.RunE = runTranscribe
@@ -105,8 +112,13 @@ func runTranscribe(cmd *cobra.Command, args []string) error {
 		ctx = context.Background()
 	}
 
-	result, err := transcribeOne(ctx, cfg, input, opts, progressReporter(cmd))
+	report := progressReporter(cmd)
+	result, err := transcribeOne(ctx, cfg, input, opts, report)
 	if err != nil {
+		return err
+	}
+
+	if err := enrichResult(ctx, cfg, &result, flagTranslate, flagSpeakers, report); err != nil {
 		return err
 	}
 
@@ -183,6 +195,52 @@ func transcribeOne(ctx context.Context, cfg *config.Config, input string, opts a
 		return transcript.Result{}, err
 	}
 	return result, nil
+}
+
+// enrichResult runs the second pass over the finished transcript.
+//
+// It runs after the transcript exists and is valid, and it works on text rather
+// than audio. A failure here therefore costs an enrichment, never the
+// transcript — which is why partial results are reported rather than raised.
+func enrichResult(ctx context.Context, cfg *config.Config, result *transcript.Result,
+	translateTo string, speakerHints []string, report func(string),
+) error {
+	if translateTo == "" && len(speakerHints) == 0 {
+		return nil
+	}
+
+	client, err := enrich.New(ctx, cfg)
+	if err != nil {
+		return err
+	}
+
+	if len(speakerHints) > 0 {
+		report(fmt.Sprintf("Naming speakers with %s...", cfg.SecondPass.Model))
+		named, err := client.NameSpeakers(ctx, result, speakerHints)
+		if err != nil {
+			return fmt.Errorf("name speakers: %w", err)
+		}
+		if named < len(result.Speakers()) {
+			fmt.Fprintf(os.Stderr, "warning: %d of %d speakers could not be named from the transcript; they keep their labels\n",
+				len(result.Speakers())-named, len(result.Speakers()))
+		}
+	}
+
+	if translateTo != "" {
+		report(fmt.Sprintf("Translating into %s with %s...", translateTo, cfg.SecondPass.Model))
+		tr, err := client.Translate(ctx, result, translateTo)
+		if err != nil {
+			return fmt.Errorf("translate: %w", err)
+		}
+		// A pass that quietly left part of the meeting in the original
+		// language must not look like a success.
+		if tr.Untranslated > 0 {
+			fmt.Fprintf(os.Stderr, "warning: %d of %d segments were not translated and keep only the original\n",
+				tr.Untranslated, tr.Translated+tr.Untranslated)
+		}
+	}
+
+	return result.Validate()
 }
 
 // requireTimingsFor refuses a subtitle format when nothing will carry time.

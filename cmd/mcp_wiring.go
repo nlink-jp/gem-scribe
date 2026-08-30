@@ -46,12 +46,23 @@ func (m *mcpTranscriber) Transcribe(ctx context.Context, req tools.Request) (tra
 		cfg.Model.Name = req.Model
 	}
 
-	return transcribeOne(ctx, &cfg, req.Audio, asr.Options{
+	result, err := transcribeOne(ctx, &cfg, req.Audio, asr.Options{
 		Languages:      req.Languages,
 		Diarize:        req.Diarize,
 		WordTimestamps: req.WordTimestamps,
 		Smart:          req.Smart,
 	}, func(string) {})
+	if err != nil {
+		return transcript.Result{}, err
+	}
+
+	// The second pass is the same code the CLI runs, for the same reason the
+	// transcription is: two implementations of "translate the transcript"
+	// would differ, and the difference would surface to an agent first.
+	if err := enrichResult(ctx, &cfg, &result, req.TranslateTo, req.SpeakerHints, func(string) {}); err != nil {
+		return transcript.Result{}, err
+	}
+	return result, nil
 }
 
 // Compile-time proof that the MCP path and the CLI path share one

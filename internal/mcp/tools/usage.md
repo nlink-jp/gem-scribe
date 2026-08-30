@@ -42,13 +42,37 @@ Starts a transcription and returns a `job_id` immediately. It does not wait.
 | `diarize` | `true` | Label each speaker turn |
 | `word_timestamps` | `true` | Word-level timings; **required** for `srt` and `vtt` |
 | `smart` | `false` | Disfluency removal and light formatting |
+| `translate_to` | none | Add a translation beside the original, e.g. `"en"` |
+| `speaker_hints` | none | Candidate names, assigned to `spk:N`. Needs `diarize` |
 | `format` | `json` | `json`, `text`, `md`, `srt`, `vtt` |
 | `output` | `output/<name>.<ext>` | Transcript path, relative to the workspace |
 | `inline_threshold` | 8192 | Bytes at or below which the transcript comes back inline |
 
+`speaker_hints` needs `diarize`: without it there are no labels to assign names
+to, so the combination is refused rather than silently ignored.
+
 `smart` cannot be combined with `diarize` or `word_timestamps`
 (`mode_conflict`). Passing `smart` alone turns both off for you rather than
 reporting a conflict you did not ask for.
+
+### The second pass — `translate_to` and `speaker_hints`
+
+The transcription model does neither of these: it does not translate (its
+language field is a detection hint), and it labels speakers `spk:0`, not by
+name. Both are a second call to a general model **over the transcript text**,
+run after the transcript exists.
+
+That ordering is the safety property. The segments are already fixed, and the
+second pass only fills slots in them — so a failure costs a translation or a
+name, never the transcript:
+
+- A segment the model does not return **keeps its original text**, and the
+  count of those appears in the result's `warning`.
+- A speaker label the model cannot resolve from the transcript **keeps its
+  label**. Omitting is the correct answer when the transcript does not
+  establish a name; a guess would be worse.
+- `translate_to` adds a language key beside the original. Nothing is replaced,
+  so `text` ends up with both.
 
 ### `check_job`
 
@@ -86,6 +110,11 @@ good transcript from a structurally perfect wrong one:
   documents attribution beyond two as experimental. Check the assignments.
 - **no timings** — you turned off `word_timestamps`, so nothing can be located
   in the audio.
+- **segments left untranslated** — part of the transcript came back without a
+  translation and carries only the original. The transcript is complete; the
+  translation is not.
+- **speakers left unnamed** — `speaker_hints` was given but the transcript did
+  not establish who some labels are. Those keep `spk:N`.
 
 ## Errors
 
