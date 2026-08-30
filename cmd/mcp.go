@@ -2,9 +2,7 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"os"
-	"syscall"
 
 	"github.com/nlink-jp/gem-scribe/internal/config"
 	"github.com/nlink-jp/gem-scribe/internal/mcp/job"
@@ -61,24 +59,6 @@ func runMCP(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	return nil
-}
-
-// claimStdout duplicates the real stdout for exclusive use by the transport and
-// redirects fd 1 to stderr.
-//
-// Returning an *os.File rather than writing through fd 1 is the point: after
-// this call there is no way to reach the protocol stream except through the
-// returned handle.
-func claimStdout() (*os.File, error) {
-	fd, err := syscall.Dup(int(os.Stdout.Fd()))
-	if err != nil {
-		return nil, fmt.Errorf("duplicate stdout for the MCP transport: %w", err)
-	}
-	if err := syscall.Dup2(int(os.Stderr.Fd()), int(os.Stdout.Fd())); err != nil {
-		syscall.Close(fd)
-		return nil, fmt.Errorf("redirect stdout to stderr: %w", err)
-	}
-	return os.NewFile(uintptr(fd), "mcp-stdout"), nil
 }
 
 // isShutdown reports whether err is the ordinary end of a session: the client
