@@ -97,6 +97,10 @@ name = "gemini-3.5-transcribe-preview"
 diarization     = true
 word_timestamp  = true
 
+[second_pass]
+model    = "gemini-3.7-flash"   # 翻訳・話者実名用の汎用モデル（GA）
+location = ""                   # 空なら文字起こしと同じ location
+
 [staging]
 bucket = ""                  # 空ならサイズ上限超過時にエラー（inline のみで動作）
 ```
@@ -105,7 +109,8 @@ bucket = ""                  # 空ならサイズ上限超過時にエラー（i
 
 ### External Dependencies
 
-- Vertex AI（`gemini-3.5-transcribe-preview`、および第2パス用の汎用 Gemini モデル）
+- Vertex AI（`gemini-3.5-transcribe-preview`、および第2パス用の汎用 Gemini モデル。
+  文字起こしモデルは翻訳も話者実名もしないため、モデル指定は 2 つ必要になる）
 - Google Cloud Storage（inline 上限を超える音声の staging のみ）
 - 認証は ADC（`gcloud auth application-default login`）
 - `google.golang.org/genai` v1.70.0 以降（`AudioTranscriptionConfig` 対応版）
@@ -143,7 +148,26 @@ Python/uv でバイナリ配布を持たなかった。正本は CLI インタ�
 - **議事録の構造化・要約・アクションアイテム抽出** — `meeting-notes` の領域
 - **話者プロファイルの永続化**（話者を回をまたいで同定する）
 - **`customVocabulary`** — 実測で壊れているため実装しない（§7 参照）
+- **Cloud Translation API の Translation LLM** — 翻訳専用モデルとして検討したが不採用。
+  理由は §3「翻訳に専用モデルを使わない理由」
 - 音声合成（`voice-studio-mcp`）
+
+### 翻訳に専用モデルを使わない理由
+
+Google は翻訳特化モデル **Translation LLM**（`general/translation-llm`）を提供しており、
+翻訳品質だけを見れば汎用 Gemini を上回る可能性が高い。専用 ASR モデルを採る本ツールの
+思想とも整合する。それでも採らない:
+
+- **Vertex AI のモデルではない。** `publishers/google/models` に翻訳系は 1 件も無く、
+  実体は Cloud Translation API v3（`translate.googleapis.com`）。Model Garden の
+  コンソール URL に現れるため Vertex のモデルに見えるが、API は別系統
+- したがって**第2のサービス・第2のクライアント・第2の IAM ロール**
+  （`roles/cloudtranslate.user`）・**リージョナルエンドポイント**（`us-central1`）が
+  増える。gem-scribe は他に global エンドポイント 1 つとしか話さない
+- **話者実名の割当はできない。** 第2パスの片割れは結局 汎用 Gemini が要る
+
+翻訳品質が実運用で不足した場合に再検討する。その時点でも判断材料は
+「サービスを 1 つ増やす価値があるか」であって、モデル単体の品質ではない。
 
 ## 4. Development Plan
 

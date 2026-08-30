@@ -20,9 +20,15 @@ import (
 // DefaultLocation is "global" because Vertex AI serves the Gemini 3 family
 // from the global endpoint only; a regional location returns 404 NOT_FOUND for
 // these models, and the error text does not say the location is the reason.
+// DefaultSecondPassModel is a general Gemini model, not a transcription one:
+// the dedicated transcription model neither translates nor names speakers, so
+// anything beyond a verbatim transcript is a separate call over the transcript
+// text. It is GA rather than preview because a supporting stage must not
+// inherit a preview model's retirement schedule.
 const (
-	DefaultModel    = "gemini-3.5-transcribe-preview"
-	DefaultLocation = "global"
+	DefaultModel           = "gemini-3.5-transcribe-preview"
+	DefaultLocation        = "global"
+	DefaultSecondPassModel = "gemini-3.7-flash"
 )
 
 // Config is the fully resolved configuration.
@@ -30,6 +36,7 @@ type Config struct {
 	GCP        GCPConfig        `toml:"gcp"`
 	Model      ModelConfig      `toml:"model"`
 	Transcribe TranscribeConfig `toml:"transcribe"`
+	SecondPass SecondPassConfig `toml:"second_pass"`
 	Staging    StagingConfig    `toml:"staging"`
 }
 
@@ -52,6 +59,25 @@ type ModelConfig struct {
 type TranscribeConfig struct {
 	Diarization   *bool `toml:"diarization"`
 	WordTimestamp *bool `toml:"word_timestamp"`
+}
+
+// SecondPassConfig names the general model used for the work the transcription
+// model cannot do: translating the transcript and attributing real names to the
+// speaker labels.
+//
+// Google also ships a translation-specialised model, Translation LLM, which
+// would plausibly beat a general model at the translation half. It is not used
+// here: it belongs to the Cloud Translation API rather than Vertex AI, so it
+// would add a second service, a second client, a second IAM role and a regional
+// endpoint to a tool that otherwise talks to one global one — and it still
+// could not do the speaker-naming half.
+type SecondPassConfig struct {
+	// Model is the general Gemini model. Empty falls back to
+	// DefaultSecondPassModel.
+	Model string `toml:"model"`
+	// Location is where that model is served. Empty means the same location as
+	// the transcription call, which is the right default while both are global.
+	Location string `toml:"location"`
 }
 
 // StagingConfig holds the GCS bucket used for audio too large to inline.
@@ -125,6 +151,9 @@ func applyEnv(cfg *Config) {
 	if v := firstEnv("GEMSCRIBE_STAGING_BUCKET"); v != "" {
 		cfg.Staging.Bucket = v
 	}
+	if v := firstEnv("GEMSCRIBE_SECOND_PASS_MODEL"); v != "" {
+		cfg.SecondPass.Model = v
+	}
 }
 
 func firstEnv(names ...string) string {
@@ -146,6 +175,9 @@ func (c *Config) normalize() {
 	if c.Model.Name == "" {
 		c.Model.Name = DefaultModel
 	}
+	if c.SecondPass.Model == "" {
+		c.SecondPass.Model = DefaultSecondPassModel
+	}
 	if c.Transcribe.Diarization == nil {
 		c.Transcribe.Diarization = boolPtr(true)
 	}
@@ -161,6 +193,15 @@ func (c *Config) RequireProject() error {
 		return fmt.Errorf("GCP project is required: set [gcp].project in %s, or the GEMSCRIBE_PROJECT / GOOGLE_CLOUD_PROJECT environment variable", DefaultPath())
 	}
 	return nil
+}
+
+// SecondPassLocation returns the endpoint for the second pass, defaulting to
+// the transcription endpoint.
+func (c *Config) SecondPassLocation() string {
+	if c.SecondPass.Location != "" {
+		return c.SecondPass.Location
+	}
+	return c.GCP.Location
 }
 
 // Diarize reports whether speaker diarization is on.

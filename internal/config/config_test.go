@@ -14,7 +14,7 @@ func clearEnv(t *testing.T) {
 	for _, k := range []string{
 		"GEMSCRIBE_PROJECT", "GOOGLE_CLOUD_PROJECT",
 		"GEMSCRIBE_LOCATION", "GOOGLE_CLOUD_LOCATION",
-		"GEMSCRIBE_MODEL", "GEMSCRIBE_STAGING_BUCKET",
+		"GEMSCRIBE_MODEL", "GEMSCRIBE_STAGING_BUCKET", "GEMSCRIBE_SECOND_PASS_MODEL",
 	} {
 		t.Setenv(k, "")
 	}
@@ -51,6 +51,30 @@ func TestLoad_Defaults(t *testing.T) {
 	}
 	if !cfg.Diarize() || !cfg.WordTimestamps() {
 		t.Error("diarization and word timestamps should default to on")
+	}
+	if cfg.SecondPass.Model != DefaultSecondPassModel {
+		t.Errorf("second pass model = %q, want %q", cfg.SecondPass.Model, DefaultSecondPassModel)
+	}
+	// A supporting stage must not inherit a preview model's retirement schedule.
+	if strings.Contains(DefaultSecondPassModel, "preview") {
+		t.Errorf("the second pass model must be GA, got %q", DefaultSecondPassModel)
+	}
+	if cfg.SecondPassLocation() != cfg.GCP.Location {
+		t.Error("the second pass should default to the transcription location")
+	}
+}
+
+func TestSecondPassLocationOverride(t *testing.T) {
+	clearEnv(t)
+	cfg, err := Load(write(t, "[gcp]\nlocation = \"global\"\n\n[second_pass]\nlocation = \"us-central1\"\n"))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.SecondPassLocation() != "us-central1" {
+		t.Errorf("second pass location = %q, want us-central1", cfg.SecondPassLocation())
+	}
+	if cfg.GCP.Location != "global" {
+		t.Errorf("the transcription location was changed to %q", cfg.GCP.Location)
 	}
 }
 

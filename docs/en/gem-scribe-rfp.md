@@ -103,6 +103,10 @@ name = "gemini-3.5-transcribe-preview"
 diarization     = true
 word_timestamp  = true
 
+[second_pass]
+model    = "gemini-3.7-flash"   # general model for translation and speaker naming (GA)
+location = ""                   # empty: the same location as the transcription
+
 [staging]
 bucket = ""                  # empty: fail past the size limit, inline-only operation
 ```
@@ -111,7 +115,9 @@ Priority: CLI flags > environment (`GEMSCRIBE_*` > `GOOGLE_CLOUD_*`) > config fi
 
 ### External Dependencies
 
-- Vertex AI (`gemini-3.5-transcribe-preview`, plus a general Gemini model for the second pass)
+- Vertex AI (`gemini-3.5-transcribe-preview`, plus a general Gemini model for the
+  second pass — the transcription model neither translates nor names speakers, so
+  two model names are configured)
 - Google Cloud Storage (staging, only for audio past the inline limit)
 - Authentication via ADC (`gcloud auth application-default login`)
 - `google.golang.org/genai` v1.70.0 or later (the version carrying `AudioTranscriptionConfig`)
@@ -151,7 +157,29 @@ mistake this for a different tool.
 - **Minute structuring, summarization, action-item extraction** — `meeting-notes` territory
 - **Persistent speaker profiles** (identifying a speaker across sessions)
 - **`customVocabulary`** — measured to be broken; not implemented (see §7)
+- **Cloud Translation's Translation LLM** — considered as the translation model and
+  rejected; see "Why translation does not use the specialised model" below
 - Speech synthesis (`voice-studio-mcp`)
+
+### Why translation does not use the specialised model
+
+Google ships a translation-specialised model, **Translation LLM**
+(`general/translation-llm`), which on translation quality alone would likely beat a
+general Gemini model — and using a purpose-built model is exactly this tool's
+philosophy elsewhere. It is still not used:
+
+- **It is not a Vertex AI model.** `publishers/google/models` contains no translation
+  entry at all; the model lives in Cloud Translation API v3
+  (`translate.googleapis.com`). Its Model Garden console URL makes it look like a
+  Vertex model, but the API is a different one
+- So it adds **a second service, a second client, a second IAM role**
+  (`roles/cloudtranslate.user`) and **a regional endpoint** (`us-central1`) to a tool
+  that otherwise talks to one global endpoint
+- **It cannot attribute speaker names.** The other half of the second pass still needs
+  a general Gemini model
+
+Revisit if translation quality proves insufficient in practice. Even then the question
+is whether one more service is worth it — not the quality of the model in isolation.
 
 ## 4. Development Plan
 
