@@ -78,3 +78,8 @@ clean:
 BREW_KIND := formula
 BREW_DESC := Cloud speech-to-text CLI and MCP server on Vertex AI Gemini
 include scripts/release-brew.mk
+
+## test-linux: run the test suite inside a Linux container (podman/docker)
+.PHONY: test-linux
+test-linux:
+	@scripts/test-linux.sh

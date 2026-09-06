@@ -15,6 +15,7 @@ is what removed gem-transcribe's failure mode on long audio.
 ```bash
 make build          # → dist/gem-scribe
 make test           # go test ./...
+make test-linux     # same suite on Linux (container)
 make check          # vet → test → build
 make build-all      # cross-compile 4 platforms (darwin arm64 only)
 make package        # archives + notarize darwin
