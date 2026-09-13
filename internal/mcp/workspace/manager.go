@@ -176,8 +176,17 @@ func (w *Workspace) VerifyRegular(rel string) error {
 	fi, err := r.Lstat(rel)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
+			// Name the path that was actually looked at, and the escape.
+			// "Place it in the workspace" without saying where sent a real
+			// agent off inventing ~/sessions/current_session/work and cost it
+			// four rounds (2026-09-14): a relative name is workspace-relative,
+			// and the workspace is a level below the work directory the caller
+			// named, which is not where an agent naturally puts a file.
 			return toolerr.Newf(toolerr.CodeInputNotFound,
-				"input %q is not in the workspace — place it there first", rel)
+				"input %q is not in the workspace: looked for %s. A relative name is "+
+					"resolved inside the workspace, so either put the file there, or pass "+
+					"the absolute path of where it already is — a recording is read in "+
+					"place, from anywhere you can read", rel, w.Path(rel))
 		}
 		return mapRootErr("lstat", rel, err)
 	}

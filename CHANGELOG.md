@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.1] - 2026-09-14
+
+### Fixed
+
+- **`input_not_found` named nothing.** "input %q is not in the workspace —
+  place it there first" does not say where the workspace is. The error now names
+  the absolute path it looked at and offers the escape — a recording may be an
+  absolute path to wherever it already is, read in place. (Found on voice-scribe
+  with a real agent, which spent four rounds recovering from that one sentence;
+  the two servers share this code.)
+- The `audio` argument's description says the workspace is
+  `<work_dir>/<workspace_id>/`, **a level below `work_dir` itself** — the
+  confusion the agent actually had.
+
 ## [0.4.0] - 2026-09-14
 
 ### Changed

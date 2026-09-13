@@ -370,3 +370,26 @@ func TestTranscribe_RefusesARecordingInACredentialLocation(t *testing.T) {
 		t.Errorf("err = %v, want path_not_allowed", err)
 	}
 }
+
+// TestMissingAudioErrorNamesThePathAndTheEscape is the regression for what a
+// real agent did with the old message (voice-scribe, 2026-09-14). Told only
+// "place it in the workspace", it invented ~/sessions/current_session/work, was
+// denied, read get_usage, re-made the recording and finally passed an absolute
+// path — four rounds to recover from one sentence that named nothing.
+func TestMissingAudioErrorNamesThePathAndTheEscape(t *testing.T) {
+	h := newHarness(t)
+
+	// The check happens on the call that supplied the argument, not in the
+	// job: a recording that is not there cannot become there later.
+	_, err := h.call(t, "transcribe", `{"audio":"not-there.m4a"}`)
+	if err == nil {
+		t.Fatal("transcribing a file that is not in the workspace must fail")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, filepath.Join(h.root, "default", "not-there.m4a")) {
+		t.Errorf("error does not name the path it looked for: %q", msg)
+	}
+	if !strings.Contains(msg, "absolute path") {
+		t.Errorf("error does not offer the absolute-path escape: %q", msg)
+	}
+}
