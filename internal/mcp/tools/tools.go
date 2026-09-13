@@ -5,9 +5,9 @@
 // prepares, and transcripts are written under its output/ subdirectory.
 //
 // Results are not strictly file-mediated. A transcript is text, and making an
-// agent read a file to see three lines of it wastes a round trip. Short
-// transcripts come back inline; long ones come back as a path plus an excerpt.
-// See resultFor.
+// agent read a file to see three lines of it wastes a round trip. The result
+// carries the text up to max_bytes and counts what the cap left out; the file
+// is written either way, because it is the product. See resultFor.
 package tools
 
 import (

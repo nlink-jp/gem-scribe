@@ -136,3 +136,24 @@ func TestInstructionsNameTheWorkDirContract(t *testing.T) {
 		}
 	}
 }
+
+// The delivery-mode switch was withdrawn too, so the words that described it
+// must not survive in what the model reads. A model told about an
+// `inline_threshold` will send one, and strict decoding refuses it.
+func TestModelFacingTextNamesNoWithdrawnDeliveryMode(t *testing.T) {
+	withdrawn := []string{"inline_threshold", "excerpt", "inline when it is short"}
+	h := newHarness(t)
+	texts := map[string]string{"initialize instructions": Instructions, "usage manual": usageMarkdown}
+	for _, tool := range h.srv.Tools() {
+		texts["tool "+tool.Name+" description"] = tool.Description
+		texts["tool "+tool.Name+" schema"] = string(tool.InputSchema)
+	}
+	for where, text := range texts {
+		for _, term := range withdrawn {
+			if strings.Contains(text, term) {
+				t.Errorf("%s still names %q: the result carries the text up to max_bytes "+
+					"and counts what the cap left out", where, term)
+			}
+		}
+	}
+}

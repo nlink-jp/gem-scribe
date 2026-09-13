@@ -24,6 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   product, so `work_dir` stays required (ADR-0002). The cap never decides
   whether the artifact exists.
 
+### Added
+
+- `TestModelFacingTextNamesNoWithdrawnDeliveryMode` — walks the initialize
+  instructions, the usage manual and every tool's description and schema for the
+  words that described the withdrawn switch. It found two tool descriptions the
+  rename had missed.
+
 ### Removed
 
 - The `excerpt` field. A preview standing in for text that was withheld has

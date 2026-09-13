@@ -25,8 +25,9 @@ func registerTranscribe(srv *mcpserver.Server, d *Deps) {
 		Name: "transcribe",
 		Description: "Transcribe a recording that is already in the workspace, using Vertex AI's dedicated " +
 			"transcription model. Returns a job_id immediately; poll it with check_job. When the job " +
-			"finishes, a short transcript comes back inline and a long one comes back as a path with an " +
-			"excerpt — the file is written either way. Labels who is speaking by default.",
+			"finishes, the transcript comes back in the result up to max_bytes, with anything past the cap " +
+			"counted in omitted_bytes; the file is written either way and holds all of it. Labels who is " +
+			"speaking by default.",
 		InputSchema: json.RawMessage(`{
   "type": "object",
   "required": ["work_dir", "audio"],

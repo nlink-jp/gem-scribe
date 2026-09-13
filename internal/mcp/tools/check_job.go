@@ -12,7 +12,7 @@ func registerCheckJob(srv *mcpserver.Server, d *Deps) {
 	srv.RegisterTool(mcpserver.Tool{
 		Name: "check_job",
 		Description: "Poll a transcribe job: state (queued/running/done/error), progress, and — when done — " +
-			"the transcript, inline if it is short and as a path with an excerpt if it is long. " +
+			"the transcript, carried in the result up to max_bytes with anything past the cap counted. " +
 			"Jobs do not survive a server restart; if the job_id is unknown, re-submit transcribe " +
 			"(it works from the same workspace).",
 		InputSchema: json.RawMessage(`{
