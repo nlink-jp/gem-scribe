@@ -43,25 +43,25 @@ func registerTranscribe(srv *mcpserver.Server, d *Deps) {
     "translate_to": {"type": "string", "description": "Add a translation beside the original, e.g. \"en\". A second pass over the transcript text"},
     "speaker_hints": {"type": "array", "items": {"type": "string"}, "description": "Candidate speaker names, assigned to spk:N in the same second pass"},
     "output": {"type": "string", "description": "Transcript path relative to the workspace; defaults under output/"},
-    "inline_threshold": {"type": "integer", "minimum": 0, "description": "Bytes at or below which the transcript is returned inline"}
+    "max_bytes": {"type": "integer", "minimum": 0, "description": "Cap on transcript bytes carried in the result (default 65536; 0 means no cap). What the cap leaves out is counted in omitted_bytes, and bytes stays the exact total. The transcript file is written either way \u2014 set this to what your context can hold."}
   },
   "additionalProperties": false
 }`),
 	}, func(ctx context.Context, args json.RawMessage) (any, error) {
 		var in struct {
-			Audio           string   `json:"audio"`
-			WorkDir         string   `json:"work_dir"`
-			WorkspaceID     string   `json:"workspace_id"`
-			Model           string   `json:"model"`
-			Languages       []string `json:"languages"`
-			Diarize         *bool    `json:"diarize"`
-			WordTimestamps  *bool    `json:"word_timestamps"`
-			Smart           bool     `json:"smart"`
-			TranslateTo     string   `json:"translate_to"`
-			SpeakerHints    []string `json:"speaker_hints"`
-			Format          string   `json:"format"`
-			Output          string   `json:"output"`
-			InlineThreshold int      `json:"inline_threshold"`
+			Audio          string   `json:"audio"`
+			WorkDir        string   `json:"work_dir"`
+			WorkspaceID    string   `json:"workspace_id"`
+			Model          string   `json:"model"`
+			Languages      []string `json:"languages"`
+			Diarize        *bool    `json:"diarize"`
+			WordTimestamps *bool    `json:"word_timestamps"`
+			Smart          bool     `json:"smart"`
+			TranslateTo    string   `json:"translate_to"`
+			SpeakerHints   []string `json:"speaker_hints"`
+			Format         string   `json:"format"`
+			Output         string   `json:"output"`
+			MaxBytes       *int     `json:"max_bytes"`
 		}
 		if err := unmarshalStrict(args, &in); err != nil {
 			return nil, err
@@ -135,9 +135,13 @@ func registerTranscribe(srv *mcpserver.Server, d *Deps) {
 			return nil, err
 		}
 
-		threshold := in.InlineThreshold
-		if threshold == 0 {
-			threshold = d.InlineThreshold
+		// A caller that passes 0 means "no cap"; one that passes nothing gets
+		// the configured default. The pointer is what tells the two apart.
+		maxBytes := d.MaxBytes
+		if in.MaxBytes != nil {
+			if maxBytes = *in.MaxBytes; maxBytes == 0 {
+				maxBytes = -1
+			}
 		}
 
 		jobID := d.Jobs.Submit(func(ctx context.Context, report func(job.Progress)) (any, error) {
@@ -173,7 +177,7 @@ func registerTranscribe(srv *mcpserver.Server, d *Deps) {
 
 			primary := withSuffix(outRel, files[0].Suffix)
 			out := resultFor(where{WorkDir: workDir, WorkspaceID: ws.ID, Rel: primary, Abs: ws.Path(primary)},
-				string(format), files[0].Content, threshold, result)
+				string(format), files[0].Content, maxBytes, result)
 			if len(extra) == 0 {
 				return out, nil
 			}

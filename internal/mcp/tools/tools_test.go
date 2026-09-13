@@ -151,8 +151,10 @@ func TestTranscribe_WritesTheTranscriptAndReturnsItInline(t *testing.T) {
 		t.Fatalf("job did not succeed: %v", status)
 	}
 	result := toMap(t, status["result"])
-	if result["text"] == nil || result["truncated"] != false {
-		t.Errorf("a short transcript should come back inline: %v", result)
+	// truncated and omitted_bytes are omitempty: their absence is the signal
+	// that the cap dropped nothing (ADR-0003).
+	if result["text"] == nil || result["truncated"] != nil || result["omitted_bytes"] != nil {
+		t.Errorf("a transcript under the cap comes back whole and unannotated: %v", result)
 	}
 	// The file is written either way, so an agent that keeps the transcript
 	// never has to ask for it again.

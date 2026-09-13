@@ -69,10 +69,10 @@ type Deps struct {
 	Transcribe Transcriber
 	// Jobs tracks background transcriptions via a single FIFO worker.
 	Jobs *job.Manager
-	// InlineThreshold is the transcript size in bytes at or below which the
-	// text is returned inline instead of only as a path. Zero uses
-	// DefaultInlineThreshold.
-	InlineThreshold int
+	// MaxBytes caps how much of the transcript a result carries. It bounds
+	// the response and nothing else — the transcript file is written either
+	// way. Zero uses DefaultMaxBytes; a negative value means no cap.
+	MaxBytes int
 	// Logger is optional.
 	Logger *slog.Logger
 }

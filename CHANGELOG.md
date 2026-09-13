@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-09-14
+
+### Changed
+
+- **Breaking: `inline_threshold` is now `max_bytes`, and the result always
+  carries the transcript.** The old threshold switched the *delivery mode*: at
+  or below 8 KB you got the whole text, above it you got an `excerpt` and a path
+  and no text at all. That is a judgement about your context window, which this
+  server cannot make — the same reason splunk-mcp and pcap-analyzer-mcp dropped
+  their spills. `max_bytes` (default 65536, `0` means no cap) bounds the
+  response and nothing else: the result carries as much text as the cap allows,
+  `truncated` and `omitted_bytes` say exactly what it left out, `bytes` stays
+  the full size, and `path` / `absolute_path` reach all of it. See
+  [ADR-0003](docs/en/adr/0003-response-cap-not-delivery-mode.md); voice-scribe
+  carries the same change so the two result types stay identical.
+- **The transcript file is written either way, as before.** It is this server's
+  product, so `work_dir` stays required (ADR-0002). The cap never decides
+  whether the artifact exists.
+
+### Removed
+
+- The `excerpt` field. A preview standing in for text that was withheld has
+  nothing to stand in for any more.
+
 ## [0.3.2] - 2026-09-14
 
 ### Fixed

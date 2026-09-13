@@ -57,7 +57,7 @@ Starts a transcription and returns a `job_id` immediately. It does not wait.
 | `speaker_hints` | none | Candidate names, assigned to `spk:N`. Needs `diarize` |
 | `format` | `json` | `json`, `text`, `md`, `srt`, `vtt` |
 | `output` | `output/<name>.<ext>` | Transcript path, relative to the workspace |
-| `inline_threshold` | 8192 | Bytes at or below which the transcript comes back inline |
+| `max_bytes` | 65536 | Cap on transcript bytes carried in the result; `0` means no cap. It bounds the response only — the file is written either way |
 
 `speaker_hints` needs `diarize`: without it there are no labels to assign names
 to, so the combination is refused rather than silently ignored.
@@ -99,11 +99,16 @@ This document.
 
 ## How a finished transcript comes back
 
-The transcript file is always written. In addition:
+The transcript file is always written — it is this server's product. The result
+carries the text as well:
 
-- **Short transcript** — the whole text is inline in `text`.
-- **Long transcript** — `truncated` is `true`, `excerpt` holds the opening, and
-  `path` / `absolute_path` name the file to read.
+- **Under the cap** — `text` holds the whole transcript.
+- **Past `max_bytes`** — `text` still holds as much as the cap allows, and
+  `truncated: true`, an exact `omitted_bytes` and a `note` say what was left
+  out. `path` / `absolute_path` reach all of it.
+
+The cap bounds the response and nothing else: what fits in your context is your
+judgement, not this server's. Set `max_bytes: 0` for no cap.
 
 The result also reports `format`, `bytes`, `model`, `language`, `segments`,
 `speakers` and `duration_seconds`.

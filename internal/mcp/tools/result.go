@@ -7,19 +7,10 @@ import (
 	"github.com/nlink-jp/gem-scribe/internal/transcript"
 )
 
-// DefaultInlineThreshold is the transcript size, in bytes, at or below which a
-// result comes back inline rather than only as a path.
-//
-// 8 KB is roughly forty minutes of conversation as plain text, or a few minutes
-// as JSON. Below it, an agent reading the transcript costs one round trip;
-// above it, the text starts crowding out the context the agent needs to do
-// anything with it.
-const DefaultInlineThreshold = 8192
-
-// excerptLimit caps the preview attached to a file-mediated result. It exists
-// so an agent can tell what it fetched — the language, the speakers, whether it
-// is obviously garbage — without reading the file.
-const excerptLimit = 600
+// DefaultMaxBytes caps how much of the transcript a result carries when neither
+// the call nor the config says otherwise. It is config.DefaultMaxBytes,
+// restated here so this package does not import the config for one number.
+const DefaultMaxBytes = 65536
 
 // where addresses one transcript: which work directory it landed in, which
 // workspace inside it, and the file itself. The work directory is echoed
@@ -46,12 +37,17 @@ type Result struct {
 	Format       string `json:"format"`
 	Bytes        int    `json:"bytes"`
 
-	// Text is the whole transcript, present only when it fits inline.
-	Text string `json:"text,omitempty"`
-	// Excerpt is the leading fragment, present only when Text is not.
-	Excerpt string `json:"excerpt,omitempty"`
-	// Truncated reports whether the caller must read Path to see everything.
-	Truncated bool `json:"truncated"`
+	// Text is the transcript, up to max_bytes. It is always present: the
+	// result carries as much as the cap allows rather than switching to a
+	// preview, because what fits is the caller's judgement, not this
+	// server's (ADR-0011).
+	Text string `json:"text"`
+	// Truncated and OmittedBytes appear only when the cap dropped something.
+	// Their presence is the signal; Bytes stays the exact total either way,
+	// and Path reaches the rest.
+	Truncated    bool   `json:"truncated,omitempty"`
+	OmittedBytes int    `json:"omitted_bytes,omitempty"`
+	Note         string `json:"note,omitempty"`
 
 	Model    string   `json:"model"`
 	Language string   `json:"language"`
@@ -60,20 +56,23 @@ type Result struct {
 	Duration float64  `json:"duration_seconds"`
 
 	// Warning describes a result that is well-formed but probably wrong —
-	// diarization that returned one speaker for a conversation, most often.
-	// An agent cannot hear the audio, so without this a transcript that is
-	// structurally perfect and substantively wrong looks like a good one.
+	// diarization that over-split, most often. Without it an agent has no way
+	// to tell ninety-three imaginary speakers from a real cast.
 	Warning string `json:"warning,omitempty"`
 }
 
-// resultFor decides between inline text and a path plus excerpt.
+// resultFor builds the result, capping the text it carries.
 //
-// The file is written either way: an agent that decided to keep the transcript
-// should not have to ask for it again, and a threshold that changes whether the
-// artifact exists would be a surprising thing to tune.
-func resultFor(w where, format, content string, threshold int, r transcript.Result) Result {
-	if threshold <= 0 {
-		threshold = DefaultInlineThreshold
+// The cap bounds the response and nothing else. The transcript file is written
+// either way — it is this server's product, and a knob that changed whether
+// the artifact exists would be a surprising thing to tune. What the cap leaves
+// out is counted rather than quietly cut, and Path reaches all of it.
+//
+// maxBytes: negative means no cap, zero means DefaultMaxBytes. The caller's
+// explicit 0 is turned into "no cap" before it gets here.
+func resultFor(w where, format, content string, maxBytes int, r transcript.Result) Result {
+	if maxBytes == 0 {
+		maxBytes = DefaultMaxBytes
 	}
 
 	out := Result{
@@ -96,7 +95,7 @@ func resultFor(w where, format, content string, threshold int, r transcript.Resu
 	}
 
 	// A single speaker is the un-diarized default and carries no information;
-	// reporting it would suggest diarization ran and found one person.
+	// reporting ["A"] would suggest diarization ran and found one person.
 	if !r.Metadata.Diarized {
 		out.Speakers = nil
 	}
@@ -111,12 +110,16 @@ func resultFor(w where, format, content string, threshold int, r transcript.Resu
 		out.Warning = strings.Join(parts, " ")
 	}
 
-	if len(content) <= threshold {
+	if maxBytes < 0 || len(content) <= maxBytes {
 		out.Text = content
 		return out
 	}
+	out.Text = excerpt(content, maxBytes)
 	out.Truncated = true
-	out.Excerpt = excerpt(content, excerptLimit)
+	out.OmittedBytes = len(content) - len(out.Text)
+	out.Note = fmt.Sprintf("Transcript capped at max_bytes=%d; %d of %d bytes are not in this result. "+
+		"Read them from the transcript file at absolute_path, or raise max_bytes.",
+		maxBytes, out.OmittedBytes, len(content))
 	return out
 }
 

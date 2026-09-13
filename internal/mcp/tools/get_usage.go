@@ -22,9 +22,10 @@ const Instructions = "gem-scribe transcribes recordings with Vertex AI's dedicat
 	"returns speaker turns and word timings as structured data. Every call names work_dir: the absolute " +
 	"path of a directory you can read back (your session or working directory). It is required and has no " +
 	"default, and the workspace is <work_dir>/<workspace_id>/. It is stateful and async: transcribe returns " +
-	"a job_id which you poll with check_job, and a finished transcript comes back inline when it is short " +
-	"and as a file path with an excerpt when it is long. audio may be an absolute path to a recording " +
-	"anywhere you can read. It costs money and sends audio to Google; its local counterpart voice-scribe costs nothing and " +
+	"a job_id which you poll with check_job, and the finished transcript comes back in the result up to " +
+	"max_bytes, with anything past the cap counted and the whole thing on disk at the path the result " +
+	"names. audio may be an absolute path to a recording anywhere you can read. " +
+	"It costs money and sends audio to Google; its local counterpart voice-scribe costs nothing and " +
 	"keeps audio on the machine but separates at most four speakers. Call the get_usage tool before your " +
 	"first transcription to learn the workspace model, the transcribe arguments, the job lifecycle, the " +
 	"meaning of the warning field, and the error recovery table."
