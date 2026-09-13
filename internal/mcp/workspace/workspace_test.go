@@ -40,40 +40,51 @@ func TestResolveInsideRejectsEscape(t *testing.T) {
 	}
 }
 
-func TestEnsureInWorkspaceRoot(t *testing.T) {
-	m := NewManager(filepath.Join(t.TempDir(), "default"))
-	root := t.TempDir()
-	w, err := m.EnsureIn(root, "proj")
+func TestEnsureUnderWorkDir(t *testing.T) {
+	m := NewManager()
+	work := t.TempDir()
+	w, err := m.EnsureUnder(work, "proj")
 	if err != nil {
-		t.Fatalf("EnsureIn: %v", err)
+		t.Fatalf("EnsureUnder: %v", err)
 	}
-	if w.BaseDir != filepath.Join(root, "proj") {
+	if w.BaseDir != filepath.Join(work, "proj") {
 		t.Errorf("base = %q", w.BaseDir)
 	}
 	// output/ must exist.
 	if fi, err := os.Stat(filepath.Join(w.BaseDir, DirOutput)); err != nil || !fi.IsDir() {
 		t.Errorf("output dir missing: %v", err)
 	}
-	// The default root must stay untouched.
-	if _, err := os.Stat(m.Root()); !os.IsNotExist(err) {
-		t.Errorf("default root should be untouched: %v", err)
+	// Idempotent: a second call reuses the same tree.
+	if again, err := m.EnsureUnder(work, "proj"); err != nil || again.BaseDir != w.BaseDir {
+		t.Errorf("second EnsureUnder = %v, %v", again, err)
 	}
 }
 
-func TestEnsureInRejectsRelativeRoot(t *testing.T) {
-	m := NewManager(t.TempDir())
-	if _, err := m.EnsureIn("relative/dir", "proj"); !errors.Is(err, toolerr.New(toolerr.CodePathNotAllowed, "")) {
-		t.Errorf("relative root: %v, want path_not_allowed", err)
+func TestEnsureUnderRejectsRelativeWorkDir(t *testing.T) {
+	m := NewManager()
+	if _, err := m.EnsureUnder("relative/dir", "proj"); !errors.Is(err, toolerr.New(toolerr.CodeWorkDirInvalid, "")) {
+		t.Errorf("relative work_dir: %v, want work_dir_invalid", err)
 	}
-	if _, err := m.EnsureIn(filepath.Join(t.TempDir(), "does-not-exist"), "proj"); !errors.Is(err, toolerr.New(toolerr.CodePathNotAllowed, "")) {
-		t.Errorf("missing root: %v, want path_not_allowed", err)
+}
+
+// TestEnsureUnderDoesNotConjureTheWorkDir: the work directory is the caller's
+// and always exists, so a missing one is a typo. Creating it would put the
+// transcript somewhere the caller is not looking — the failure this contract
+// exists to remove (ADR-0002).
+func TestEnsureUnderDoesNotConjureTheWorkDir(t *testing.T) {
+	m := NewManager()
+	missing := filepath.Join(t.TempDir(), "not-there")
+	if _, err := m.EnsureUnder(missing, "proj"); err == nil {
+		t.Fatal("EnsureUnder under a missing work_dir succeeded")
+	}
+	if _, err := os.Stat(missing); !os.IsNotExist(err) {
+		t.Errorf("work_dir was created: %v", err)
 	}
 }
 
 func TestVerifyRegularSymlinkRejected(t *testing.T) {
-	root := t.TempDir()
-	m := NewManager(root)
-	w, err := m.Ensure("proj")
+	m := NewManager()
+	w, err := m.EnsureUnder(t.TempDir(), "proj")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,9 +114,8 @@ func TestVerifyRegularSymlinkRejected(t *testing.T) {
 }
 
 func TestReadFileSymlinkEscapeRejected(t *testing.T) {
-	root := t.TempDir()
-	m := NewManager(root)
-	w, err := m.Ensure("proj")
+	m := NewManager()
+	w, err := m.EnsureUnder(t.TempDir(), "proj")
 	if err != nil {
 		t.Fatal(err)
 	}

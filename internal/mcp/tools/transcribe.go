@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/nlink-jp/gem-scribe/internal/asr"
@@ -12,6 +14,7 @@ import (
 	"github.com/nlink-jp/gem-scribe/internal/mcp/job"
 	"github.com/nlink-jp/gem-scribe/internal/mcp/mcpserver"
 	"github.com/nlink-jp/gem-scribe/internal/mcp/toolerr"
+	"github.com/nlink-jp/gem-scribe/internal/mcp/workdir"
 	"github.com/nlink-jp/gem-scribe/internal/mcp/workspace"
 	"github.com/nlink-jp/gem-scribe/internal/staging"
 	"github.com/nlink-jp/gem-scribe/internal/transcript"
@@ -26,11 +29,11 @@ func registerTranscribe(srv *mcpserver.Server, d *Deps) {
 			"excerpt — the file is written either way. Labels who is speaking by default.",
 		InputSchema: json.RawMessage(`{
   "type": "object",
-  "required": ["audio"],
+  "required": ["work_dir", "audio"],
   "properties": {
-    "audio": {"type": "string", "description": "Recording path, relative to the workspace"},
-    "workspace_root": {"type": "string", "description": "Absolute path to a workspace root you prepared and can read back. Pass your own session or working directory when you have one: results come back as paths, so a workspace you cannot open leaves you holding a path to nothing."},
-    "workspace_id": {"type": "string", "description": "Workspace within the root; defaults to \"default\""},
+    "work_dir": {"type": "string", "description": "Absolute path to a directory you can read back \u2014 your session or working directory. The workspace is <work_dir>/<workspace_id>/ and the transcript is written there, so a directory you cannot open leaves you holding a path to nothing. It must already exist, and nothing here expands ~ or resolves a relative path."},
+    "audio": {"type": "string", "description": "Recording to transcribe: a path relative to the workspace, or an absolute path to a recording anywhere you can read \u2014 it is read in place, never copied. Credential and agent-control locations (~/.ssh, ~/.aws and the like) are refused."},
+    "workspace_id": {"type": "string", "description": "Workspace within work_dir; defaults to \"default\""},
     "model": {"type": "string", "description": "Transcription model; omit to use the configured one"},
     "languages": {"type": "array", "items": {"type": "string"}, "description": "BCP-47 hints such as [\"ja-JP\"]; omit to detect"},
     "diarize": {"type": "boolean", "description": "Label each speaker turn (default true). Up to 8 speakers; attribution beyond 2 is experimental"},
@@ -47,7 +50,7 @@ func registerTranscribe(srv *mcpserver.Server, d *Deps) {
 	}, func(ctx context.Context, args json.RawMessage) (any, error) {
 		var in struct {
 			Audio           string   `json:"audio"`
-			WorkspaceRoot   string   `json:"workspace_root"`
+			WorkDir         string   `json:"work_dir"`
 			WorkspaceID     string   `json:"workspace_id"`
 			Model           string   `json:"model"`
 			Languages       []string `json:"languages"`
@@ -103,31 +106,31 @@ func registerTranscribe(srv *mcpserver.Server, d *Deps) {
 				"%s output needs word_timestamps; every cue would otherwise be written at 00:00:00", format)
 		}
 
-		if in.WorkspaceID == "" {
-			in.WorkspaceID = "default"
-		}
-		ws, err := d.WS.EnsureIn(in.WorkspaceRoot, in.WorkspaceID)
+		workDir, err := d.WorkDir.Resolve(ctx, in.WorkDir)
 		if err != nil {
 			return nil, err
 		}
 
-		audioRel, err := ws.ResolveInside(in.Audio)
+		if in.WorkspaceID == "" {
+			in.WorkspaceID = "default"
+		}
+		ws, err := d.WS.EnsureUnder(workDir, in.WorkspaceID)
 		if err != nil {
 			return nil, err
 		}
-		// The API client cannot inherit os.Root, so the containment check
-		// happens here, immediately before the absolute path is handed over.
-		if err := ws.VerifyRegular(audioRel); err != nil {
+
+		audioAbs, audioName, err := resolveAudio(ws, in.Audio)
+		if err != nil {
 			return nil, err
 		}
 		// Refusing an unsupported container here, with the accepted list in
 		// hand, beats a job that fails minutes later with an opaque API error.
-		if _, err := staging.MIMETypeFor(audioRel); err != nil {
+		if _, err := staging.MIMETypeFor(audioName); err != nil {
 			return nil, toolerr.Newf(toolerr.CodeUnsupportedFormat, "%v", err)
 		}
-		req.Audio = ws.Path(audioRel)
+		req.Audio = audioAbs
 
-		outRel, err := resolveOutput(ws, in.Output, audioRel, string(format))
+		outRel, err := resolveOutput(ws, in.Output, audioName, string(format))
 		if err != nil {
 			return nil, err
 		}
@@ -169,14 +172,15 @@ func registerTranscribe(srv *mcpserver.Server, d *Deps) {
 			}
 
 			primary := withSuffix(outRel, files[0].Suffix)
-			out := resultFor(primary, ws.Path(primary), string(format), files[0].Content, threshold, result)
+			out := resultFor(where{WorkDir: workDir, WorkspaceID: ws.ID, Rel: primary, Abs: ws.Path(primary)},
+				string(format), files[0].Content, threshold, result)
 			if len(extra) == 0 {
 				return out, nil
 			}
 			return map[string]any{"transcript": out, "additional_files": extra}, nil
 		})
 
-		return describeJob(jobID, outRel), nil
+		return describeJob(jobID, workDir, ws.ID, outRel), nil
 	})
 }
 
@@ -186,6 +190,52 @@ func boolOr(v *bool, fallback bool) bool {
 		return fallback
 	}
 	return *v
+}
+
+// resolveAudio locates the recording and returns the absolute path the decoder
+// reads plus the name the default transcript is derived from.
+//
+// A relative path is workspace-relative, and os.Root keeps the read inside the
+// workspace. An absolute path is read where it lies: the caller could have
+// read it itself, and copying an hour of audio into the workspace to transcribe
+// it would be pure waste (org ADR-021 §7). What is refused is a credential or
+// agent-control location, checked on both spellings of the path — as given and
+// symlink-resolved — because either alone has a hole.
+func resolveAudio(ws *workspace.Workspace, audio string) (string, string, error) {
+	if audio == "" {
+		return "", "", toolerr.New(toolerr.CodeMissingArgument, "audio is required")
+	}
+	if !filepath.IsAbs(audio) {
+		rel, err := ws.ResolveInside(audio)
+		if err != nil {
+			return "", "", err
+		}
+		// The decoder cannot inherit os.Root, so the containment check happens
+		// here, immediately before the absolute path is handed over.
+		if err := ws.VerifyRegular(rel); err != nil {
+			return "", "", err
+		}
+		return ws.Path(rel), rel, nil
+	}
+
+	resolved, err := filepath.EvalSymlinks(audio)
+	if err != nil {
+		return "", "", toolerr.Newf(toolerr.CodeInputNotFound,
+			"audio %q cannot be read: %v", audio, err)
+	}
+	if why := workdir.Sensitive(audio, resolved); why != "" {
+		return "", "", toolerr.Newf(toolerr.CodePathNotAllowed,
+			"audio %q is refused: %s", audio, why)
+	}
+	fi, err := os.Stat(resolved)
+	if err != nil {
+		return "", "", toolerr.Newf(toolerr.CodeInputNotFound, "audio %q cannot be read: %v", audio, err)
+	}
+	if !fi.Mode().IsRegular() {
+		return "", "", toolerr.Newf(toolerr.CodePathNotAllowed,
+			"audio %q is not a regular file (mode %s)", audio, fi.Mode())
+	}
+	return resolved, filepath.Base(resolved), nil
 }
 
 // resolveOutput picks where the transcript is written: the caller's choice, or

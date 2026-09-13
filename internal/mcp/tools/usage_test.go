@@ -20,7 +20,7 @@ import (
 func registeredServer(t *testing.T) *mcpserver.Server {
 	t.Helper()
 	srv := mcpserver.New("gem-scribe", "test", nil, nil)
-	Register(srv, &Deps{WS: workspace.NewManager(t.TempDir())})
+	Register(srv, &Deps{WS: workspace.NewManager()})
 	return srv
 }
 

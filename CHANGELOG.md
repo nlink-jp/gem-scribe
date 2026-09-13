@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- **Breaking: `workspace_root` is now `work_dir`, and `transcribe` requires it.**
+  It means the absolute path of a directory the caller can read back, and there
+  is no server-owned default any more — omitting it used to write under
+  `~/.local/share/gem-scribe/mcp-workspaces`, which no calling agent can open, so
+  the job succeeded and the path it returned did not. A call still sending
+  `workspace_root` (or `workspaceRoot` / `workspace_dir`) is refused with
+  `work_dir_required` naming the replacement. See
+  [ADR-0002](docs/en/adr/0002-work-dir-contract.md); organization ADR-021.
+- `audio` may now be an absolute path to a recording anywhere readable, read in
+  place and never copied. Credential and agent-control locations (`~/.ssh`,
+  `~/.aws`, `~/.gnupg`, `~/.config/gcloud`, `~/Library/Keychains`, `~/.claude`,
+  `~/.codex`, any `.env`) are refused, checked on the path as given and on its
+  symlink-resolved form.
+- A runtime may supply the directory instead of the model: the server reads
+  `_meta["jp.nlink/work_dir"]` when the argument is absent. The argument wins.
+- Results echo the resolved `work_dir` and `workspace_id`.
+
+### Added
+
+- `work_dir_required`, `work_dir_invalid`, `work_dir_not_found`,
+  `work_dir_not_writable`, `work_dir_denied` — five codes that say which part of
+  the contract failed. The work directory must already exist (the server does not
+  create it), be writable, and not be a system or credential location.
+
 ## [0.2.1] - 2026-08-31
 
 ### Changed

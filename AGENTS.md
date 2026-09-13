@@ -43,7 +43,7 @@ gem-scribe/
 │   ├── enrich/            ← second pass: translation and speaker naming, over text
 │   ├── staging/           ← inline-vs-GCS decision, upload and cleanup
 │   ├── transcript/        ← output envelope, formatters, diagnosis
-│   └── mcp/               ← jsonrpc, transport, mcpserver, job, workspace, tools
+│   └── mcp/               ← jsonrpc, transport, mcpserver, job, workdir, workspace, tools
 └── docs/{en,ja}/          ← RFP, ADRs
 ```
 

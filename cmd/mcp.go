@@ -46,7 +46,7 @@ func runMCP(cmd *cobra.Command, args []string) error {
 	defer protocolOut.Close()
 
 	deps := &tools.Deps{
-		WS:         workspace.NewManager(defaultWorkspaceRoot()),
+		WS:         workspace.NewManager(),
 		Transcribe: newMCPTranscriber(cfg),
 		Jobs:       job.NewManager(cmd.Context()),
 	}

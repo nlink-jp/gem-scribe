@@ -65,6 +65,15 @@ const (
 	CodeWorkspaceFailed    = "workspace_failed"
 	CodeJobNotFound        = "job_not_found"
 
+	// Work directory, per organization ADR-021. Split out of path_not_allowed
+	// so a caller can tell "you did not pass one" from "it is not there" from
+	// "this server refuses to write there".
+	CodeWorkDirRequired    = "work_dir_required"
+	CodeWorkDirInvalid     = "work_dir_invalid"
+	CodeWorkDirNotFound    = "work_dir_not_found"
+	CodeWorkDirNotWritable = "work_dir_not_writable"
+	CodeWorkDirDenied      = "work_dir_denied"
+
 	// Transcription-specific.
 	CodeInputNotFound     = "input_not_found"      // the named recording is missing from the workspace
 	CodeUnsupportedFormat = "unsupported_format"   // the file extension is not an audio format the model accepts

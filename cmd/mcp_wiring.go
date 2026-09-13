@@ -2,28 +2,12 @@ package cmd
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 
 	"github.com/nlink-jp/gem-scribe/internal/asr"
 	"github.com/nlink-jp/gem-scribe/internal/config"
 	"github.com/nlink-jp/gem-scribe/internal/mcp/tools"
 	"github.com/nlink-jp/gem-scribe/internal/transcript"
 )
-
-// defaultWorkspaceRoot is where workspaces live when the agent does not prepare
-// one of its own. It sits under the data directory rather than the config
-// directory: these are working files, and recordings can be large.
-func defaultWorkspaceRoot() string {
-	if dir := os.Getenv("XDG_DATA_HOME"); dir != "" {
-		return filepath.Join(dir, "gem-scribe", "mcp-workspaces")
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return filepath.Join(os.TempDir(), "gem-scribe", "mcp-workspaces")
-	}
-	return filepath.Join(home, ".local", "share", "gem-scribe", "mcp-workspaces")
-}
 
 // mcpTranscriber adapts the CLI's transcription path to the MCP tool interface.
 //

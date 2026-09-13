@@ -21,8 +21,23 @@ const DefaultInlineThreshold = 8192
 // is obviously garbage — without reading the file.
 const excerptLimit = 600
 
+// where addresses one transcript: which work directory it landed in, which
+// workspace inside it, and the file itself. The work directory is echoed
+// because a caller whose runtime supplied it through the request `_meta`
+// (org ADR-021) learns the destination from the result and nowhere else.
+type where struct {
+	WorkDir     string
+	WorkspaceID string
+	Rel         string
+	Abs         string
+}
+
 // Result is what transcribe and check_job report for a finished transcription.
 type Result struct {
+	// WorkDir is the resolved work directory this call wrote into.
+	WorkDir string `json:"work_dir"`
+	// WorkspaceID is the workspace inside it.
+	WorkspaceID string `json:"workspace_id"`
 	// Path is the workspace-relative transcript file, always written.
 	Path string `json:"path"`
 	// AbsolutePath is the same file, for tools that cannot resolve the
@@ -56,14 +71,16 @@ type Result struct {
 // The file is written either way: an agent that decided to keep the transcript
 // should not have to ask for it again, and a threshold that changes whether the
 // artifact exists would be a surprising thing to tune.
-func resultFor(rel, abs, format, content string, threshold int, r transcript.Result) Result {
+func resultFor(w where, format, content string, threshold int, r transcript.Result) Result {
 	if threshold <= 0 {
 		threshold = DefaultInlineThreshold
 	}
 
 	out := Result{
-		Path:         rel,
-		AbsolutePath: abs,
+		WorkDir:      w.WorkDir,
+		WorkspaceID:  w.WorkspaceID,
+		Path:         w.Rel,
+		AbsolutePath: w.Abs,
 		Format:       format,
 		Bytes:        len(content),
 		Model:        r.Metadata.Model,
@@ -125,12 +142,16 @@ func excerpt(s string, n int) string {
 // byte, which are all 0b10xxxxxx).
 func utf8Start(b byte) bool { return b&0xC0 != 0x80 }
 
-// describeJob renders a job submission acknowledgement.
-func describeJob(jobID, rel string) map[string]any {
+// describeJob renders a job submission acknowledgement. It names the work
+// directory the job resolved, so a caller that did not pass one itself can see
+// where the transcript will appear before the job finishes.
+func describeJob(jobID, workDir, workspaceID, rel string) map[string]any {
 	return map[string]any{
-		"job_id": jobID,
-		"state":  "queued",
-		"output": rel,
+		"job_id":       jobID,
+		"state":        "queued",
+		"work_dir":     workDir,
+		"workspace_id": workspaceID,
+		"output":       rel,
 		"next": fmt.Sprintf(
 			"poll check_job with job_id %q; the transcript is written to %q when it reports done",
 			jobID, rel),

@@ -15,10 +15,12 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"strings"
 
 	"github.com/nlink-jp/gem-scribe/internal/mcp/job"
 	"github.com/nlink-jp/gem-scribe/internal/mcp/mcpserver"
 	"github.com/nlink-jp/gem-scribe/internal/mcp/toolerr"
+	"github.com/nlink-jp/gem-scribe/internal/mcp/workdir"
 	"github.com/nlink-jp/gem-scribe/internal/mcp/workspace"
 	"github.com/nlink-jp/gem-scribe/internal/transcript"
 )
@@ -59,6 +61,10 @@ type Request struct {
 type Deps struct {
 	// WS manages workspaces (default root + agent-prepared roots).
 	WS *workspace.Manager
+	// WorkDir resolves and validates the per-call work directory: the
+	// argument, then the request's _meta, then an error. The zero value
+	// works (organization ADR-021).
+	WorkDir workdir.Resolver
 	// Transcribe performs the actual work (real client or a test fake).
 	Transcribe Transcriber
 	// Jobs tracks background transcriptions via a single FIFO worker.
@@ -84,8 +90,17 @@ func Register(srv *mcpserver.Server, d *Deps) {
 	registerCheckJob(srv, d)
 }
 
+// retiredWorkDirNames are the spellings the work directory argument carried
+// across the fleet before org ADR-021 settled on work_dir.
+var retiredWorkDirNames = []string{"workspace_root", "workspaceRoot", "workspace_dir"}
+
 // unmarshalStrict decodes tool arguments, rejecting unknown fields so agent
 // typos surface as invalid_arguments instead of being silently ignored.
+//
+// A caller sending one of the retired work-directory spellings is told the new
+// name rather than left to guess from "unknown field": the rename is ours, and
+// a caller working from an older manual should need one turn to recover, not a
+// schema re-read.
 func unmarshalStrict(args json.RawMessage, into any) error {
 	if len(args) == 0 {
 		args = json.RawMessage("{}")
@@ -93,6 +108,13 @@ func unmarshalStrict(args json.RawMessage, into any) error {
 	dec := json.NewDecoder(bytes.NewReader(args))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(into); err != nil {
+		msg := err.Error()
+		for _, old := range retiredWorkDirNames {
+			if strings.Contains(msg, `unknown field "`+old+`"`) {
+				return toolerr.Newf(toolerr.CodeWorkDirRequired,
+					"%q was renamed to work_dir: pass the absolute path of a directory you can read back", old)
+			}
+		}
 		return toolerr.Newf(toolerr.CodeInvalidArguments, "invalid arguments: %v", err)
 	}
 	return nil

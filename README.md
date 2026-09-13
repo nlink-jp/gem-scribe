@@ -118,7 +118,10 @@ with the same names and shapes as voice-scribe's, so an agent drives either the
 same way.
 
 Transcription is asynchronous: `transcribe` returns a `job_id` that `check_job`
-polls. Recordings live in a workspace directory the agent prepares; the server
+polls. Every call names `work_dir` — the absolute path of a directory the agent
+can read back — and the transcript is written under it; a recording may sit
+there or be named by an absolute path anywhere readable, read in place and never
+copied (credential locations such as `~/.ssh` are refused). The server
 writes only under its `output/` subdirectory, and paths cannot escape it. Call
 `get_usage` first — it returns the full manual, including the error-recovery
 table.

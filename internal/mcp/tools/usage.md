@@ -15,19 +15,27 @@ The server works in a directory **you** prepare. One workspace is one
 transcription project:
 
 ```
-<workspace_root>/<workspace_id>/
-├── meeting.m4a          ← you put recordings here
+<work_dir>/<workspace_id>/
+├── meeting.m4a          ← a recording may sit here
 └── output/              ← the server writes transcripts here, and nowhere else
 ```
 
-- `workspace_root` — absolute path of a directory you control, and can read
-  back: you put the recording there and the transcript comes back as a path
-  under it. Omit it and the server uses its own default root, which is only
-  useful if that is reachable from your side too.
+- `work_dir` (**required**, every call) — absolute path of a directory you
+  control and can read back. The transcript comes back as a path under it, so a
+  directory you cannot open leaves you holding a path to nothing. There is no
+  default: it must already exist, and nothing here expands `~` or resolves a
+  relative path.
 - `workspace_id` — `[a-zA-Z0-9_-]{1,64}`, defaults to `default`.
-- Every path argument is **relative to the workspace** and cannot escape it.
-  Absolute paths and `..` are refused (`path_not_allowed`), and symlinks planted
-  in the workspace cannot redirect the server outside it.
+- `audio` may be **relative to the workspace, or an absolute path to a recording
+  anywhere you can read** — it is read in place, never copied. Credential and
+  agent-control locations (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.config/gcloud`,
+  `~/Library/Keychains`, `~/.claude`, `~/.codex`, any `.env`) are refused.
+- Every other path argument is **relative to the workspace** and cannot escape
+  it. `..` is refused (`path_not_allowed`), and symlinks planted in the
+  workspace cannot redirect the server outside it.
+- Your runtime may supply the work directory for you by setting
+  `_meta["jp.nlink/work_dir"]` on the call; the argument always wins, and every
+  result echoes the `work_dir` that was used.
 
 ## Tools
 
@@ -37,8 +45,9 @@ Starts a transcription and returns a `job_id` immediately. It does not wait.
 
 | Argument | Default | Notes |
 |---|---|---|
-| `audio` (required) | — | Recording path, relative to the workspace |
-| `workspace_root` / `workspace_id` | server default / `default` | See above |
+| `work_dir` (required) | — | Absolute path of a directory you can read back |
+| `audio` (required) | — | Workspace-relative, or an absolute path read in place |
+| `workspace_id` | `default` | See above |
 | `model` | configured model | Override the transcription model |
 | `languages` | detect | BCP-47 hints, e.g. `["ja-JP"]` |
 | `diarize` | `true` | Label each speaker turn |
@@ -127,7 +136,12 @@ Every failure carries a stable `code`. Branch on the code, not the prose.
 | `missing_argument` | A required argument was absent | Supply it |
 | `invalid_arguments` | Unknown field, wrong type, or a bad `format` | Fix the call; unknown fields are rejected rather than ignored |
 | `invalid_workspace_id` | `workspace_id` is not `[a-zA-Z0-9_-]{1,64}` | Rename it |
-| `path_not_allowed` | A path was absolute or pointed outside the workspace | Use a workspace-relative path |
+| `path_not_allowed` | A relative path pointed outside the workspace, or a recording resolved into a credential location | Use a workspace-relative path, or a recording somewhere ordinary |
+| `work_dir_required` | No `work_dir` argument, and your runtime attached no hint | Pass the absolute path of a directory you can read back |
+| `work_dir_invalid` | Not absolute, started with `~`, or contained `..` | Pass the path you mean, spelled out |
+| `work_dir_not_found` | Not there, or not a directory | It is your directory, so this is a typo — the server does not create it |
+| `work_dir_not_writable` | The server cannot write there | Pass a directory you own |
+| `work_dir_denied` | A system location, your home directory itself, or a credential directory | Pass your session or working directory |
 | `workspace_failed` | The workspace could not be created or read | Check the root exists and is writable |
 | `input_not_found` | The recording is not in the workspace | Put the file there first; the server does not fetch |
 | `unsupported_format` | Not an audio container the model reads | Convert to wav, mp3, m4a, flac, ogg, opus, aiff or webm |

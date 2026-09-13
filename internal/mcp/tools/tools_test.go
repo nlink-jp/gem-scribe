@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -71,7 +72,7 @@ func newHarness(t *testing.T) *harness {
 	fake := &fakeTranscriber{result: sampleTranscript()}
 	srv := mcpserver.New("gem-scribe", "test", nil, nil)
 	Register(srv, &Deps{
-		WS:         workspace.NewManager(root),
+		WS:         workspace.NewManager(),
 		Transcribe: fake,
 		Jobs:       job.NewManager(context.Background()),
 	})
@@ -80,6 +81,18 @@ func newHarness(t *testing.T) *harness {
 
 func (h *harness) call(t *testing.T, name string, args string) (any, error) {
 	t.Helper()
+	// transcribe takes the caller's work directory on every call
+	// (organization ADR-021). Tests that are not about it say nothing, and
+	// the harness supplies the one it prepared; tests that are about it drive
+	// h.srv.Call directly.
+	if name == "transcribe" && !strings.Contains(args, "work_dir") {
+		rest := strings.TrimPrefix(args, "{")
+		sep := ","
+		if strings.TrimSpace(rest) == "}" {
+			sep = ""
+		}
+		args = `{"work_dir":` + strconv.Quote(h.root) + sep + rest
+	}
 	return h.srv.Call(context.Background(), name, json.RawMessage(args))
 }
 
@@ -185,7 +198,6 @@ func TestTranscribe_Rejections(t *testing.T) {
 		{"smart with an explicit diarize", `{"audio":"meeting.m4a","smart":true,"diarize":true}`, toolerr.CodeModeConflict},
 		{"srt without timings", `{"audio":"meeting.m4a","format":"srt","word_timestamps":false}`, toolerr.CodeInvalidArguments},
 		{"escaping the workspace", `{"audio":"../../etc/passwd"}`, toolerr.CodePathNotAllowed},
-		{"absolute path", `{"audio":"/etc/passwd"}`, toolerr.CodePathNotAllowed},
 		{"missing recording", `{"audio":"absent.m4a"}`, toolerr.CodeInputNotFound},
 		{"bad workspace id", `{"audio":"meeting.m4a","workspace_id":"../evil"}`, toolerr.CodeInvalidWorkspaceID},
 	}
@@ -307,5 +319,52 @@ func TestResult_CarriesTheDiagnosisAsAWarning(t *testing.T) {
 	warning, _ := result["warning"].(string)
 	if !strings.Contains(warning, "single speaker") {
 		t.Errorf("warning = %q, want the single-speaker diagnosis", warning)
+	}
+}
+
+// An absolute recording is read where it lies rather than staged: the caller
+// could have read it itself, and copying an hour of audio in to transcribe it
+// would be pure waste (organization ADR-021 §7).
+func TestTranscribe_ReadsAnAbsoluteRecordingInPlace(t *testing.T) {
+	h := newHarness(t)
+	outside := filepath.Join(t.TempDir(), "interview.m4a")
+	if err := os.WriteFile(outside, []byte("not really audio"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, err := h.call(t, "transcribe", `{"audio":`+strconv.Quote(outside)+`}`)
+	if err != nil {
+		t.Fatalf("transcribe: %v", err)
+	}
+	status := h.await(t, toMap(t, out)["job_id"].(string))
+	if status["state"] != "done" {
+		t.Fatalf("state = %v: %v", status["state"], status["error"])
+	}
+	want, err := filepath.EvalSymlinks(outside)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h.fake.seen.Audio != want {
+		t.Errorf("the API client was handed %q, want the recording where it lies (%q)", h.fake.seen.Audio, want)
+	}
+}
+
+// The floor under that: a recording named in a credential location is refused.
+func TestTranscribe_RefusesARecordingInACredentialLocation(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	ssh := filepath.Join(home, ".ssh")
+	if err := os.MkdirAll(ssh, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	secret := filepath.Join(ssh, "notes.m4a")
+	if err := os.WriteFile(secret, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	h := newHarness(t)
+	_, err := h.call(t, "transcribe", `{"audio":`+strconv.Quote(secret)+`}`)
+	var te *toolerr.Error
+	if !errors.As(err, &te) || te.Code != toolerr.CodePathNotAllowed {
+		t.Errorf("err = %v, want path_not_allowed", err)
 	}
 }

@@ -4,35 +4,33 @@
 // wants transcribed inside it; the server writes only under the output/
 // subdirectory. Layout:
 //
-//	<workspace_root>/<id>/
+//	<work_dir>/<id>/
 //	├── <recordings>         agent-placed inputs (any relative layout)
 //	└── output/              transcripts (server-written)
 //
-// The os.Root design and the agent-prepared-root convention are the org's
-// standard for MCP servers that touch agent-writable directories.
+// Ported from image-forge's MCP server, which is where the os.Root design and
+// the agent-prepared-root convention come from.
 //
-// The workspace root is either the server-configured default
-// (~/.local/share/gem-scribe/mcp-workspaces) or an agent-prepared directory
-// passed per call as workspace_root ("the server works in the workplace the
-// agent prepared"). Because agent-prepared roots are agent-writable, every
-// server I/O inside a workspace goes through os.Root so symlinks planted in the
-// workspace cannot make the server read or write outside it (kernel-enforced
-// containment).
+// Workspaces exist only under the caller's work directory, which arrives per
+// call and is validated by internal/mcp/workdir (org ADR-021; project
+// ADR-0002). There is no server-owned default root: a directory the caller
+// cannot read back turns a successful call into a path to nothing. Because the
+// work directory is agent-writable, every server I/O inside a workspace goes
+// through os.Root so symlinks planted in the workspace cannot make the server
+// read or write outside it (kernel-enforced containment).
 package workspace
 
 import (
 	"errors"
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/nlink-jp/gem-scribe/internal/mcp/toolerr"
 )
 
-// DirOutput is the server-written subdirectory holding transcripts.
+// DirOutput is the server-written subdirectory holding rendered images.
 const DirOutput = "output"
 
 // Workspace is a validated, materialized per-project directory.
@@ -190,60 +188,30 @@ func (w *Workspace) VerifyRegular(rel string) error {
 	return nil
 }
 
-// Manager creates, lists, and deletes workspaces under the server's default
-// root directory, and materializes workspaces under agent-prepared roots.
-type Manager struct {
-	root string
-}
+// Manager materializes workspaces under the work directory a call names.
+// It holds no default root of its own — see the package comment.
+type Manager struct{}
 
-// NewManager returns a Manager whose default root is dir.
-func NewManager(dir string) *Manager {
-	return &Manager{root: filepath.Clean(dir)}
-}
+// NewManager returns a Manager.
+func NewManager() *Manager { return &Manager{} }
 
-// Root returns the default workspace root directory.
-func (m *Manager) Root() string { return m.root }
-
-// Ensure validates id and creates the workspace directory tree under the
-// default root (idempotent).
-func (m *Manager) Ensure(id string) (*Workspace, error) {
-	return m.ensureUnder(m.root, id, true)
-}
-
-// EnsureIn materializes a workspace under an agent-prepared root. rootDir must
-// be an absolute path to an existing directory — "prepared" simply means the
-// agent created it in a location it can write. An empty rootDir falls back to
-// the default root.
-func (m *Manager) EnsureIn(rootDir, id string) (*Workspace, error) {
-	if rootDir == "" {
-		return m.Ensure(id)
+// EnsureUnder materializes <workDir>/<id> and its output/ subdirectory
+// (idempotent). workDir must be an absolute path to an existing directory the
+// caller can read back; workdir.Resolver.Resolve is what establishes that, and
+// this method assumes it has already run.
+func (m *Manager) EnsureUnder(workDir, id string) (*Workspace, error) {
+	if !filepath.IsAbs(workDir) {
+		return nil, toolerr.Newf(toolerr.CodeWorkDirInvalid,
+			"work_dir %q must be an absolute path", workDir)
 	}
-	if !filepath.IsAbs(rootDir) {
-		return nil, toolerr.Newf(toolerr.CodePathNotAllowed,
-			"workspace_root %q must be an absolute path", rootDir)
-	}
-	fi, err := os.Stat(rootDir)
-	if err != nil {
-		return nil, toolerr.Newf(toolerr.CodePathNotAllowed,
-			"workspace_root %q does not exist — create it first (the agent prepares the workplace)", rootDir)
-	}
-	if !fi.IsDir() {
-		return nil, toolerr.Newf(toolerr.CodePathNotAllowed,
-			"workspace_root %q is not a directory", rootDir)
-	}
-	return m.ensureUnder(filepath.Clean(rootDir), id, false)
-}
-
-func (m *Manager) ensureUnder(root, id string, createRoot bool) (*Workspace, error) {
 	if err := ValidateID(id); err != nil {
 		return nil, err
 	}
-	base := filepath.Join(root, id)
-	if createRoot {
-		if err := os.MkdirAll(base, 0o755); err != nil {
-			return nil, toolerr.Newf(toolerr.CodeWorkspaceFailed, "create workspace dir: %v", err)
-		}
-	} else if err := os.Mkdir(base, 0o755); err != nil && !errors.Is(err, fs.ErrExist) {
+	base := filepath.Join(filepath.Clean(workDir), id)
+	// Mkdir, not MkdirAll: the work directory itself is the caller's and must
+	// already exist, so a missing parent here is a caller mistake worth
+	// hearing about rather than a tree to conjure up.
+	if err := os.Mkdir(base, 0o755); err != nil && !errors.Is(err, fs.ErrExist) {
 		return nil, toolerr.Newf(toolerr.CodeWorkspaceFailed, "create workspace dir: %v", err)
 	}
 	w := &Workspace{ID: id, BaseDir: base}
@@ -251,40 +219,4 @@ func (m *Manager) ensureUnder(root, id string, createRoot bool) (*Workspace, err
 		return nil, err
 	}
 	return w, nil
-}
-
-// List returns the IDs of existing workspaces under the default root (sorted).
-func (m *Manager) List() ([]string, error) {
-	entries, err := os.ReadDir(m.root)
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, toolerr.Newf(toolerr.CodeWorkspaceFailed, "list workspaces: %v", err)
-	}
-	var ids []string
-	for _, e := range entries {
-		if e.IsDir() && ValidateID(e.Name()) == nil {
-			ids = append(ids, e.Name())
-		}
-	}
-	sort.Strings(ids)
-	return ids, nil
-}
-
-// Delete removes a workspace under the default root. Refuses to remove
-// anything that is not a direct child of the root (defense in depth on top of
-// ValidateID).
-func (m *Manager) Delete(id string) error {
-	if err := ValidateID(id); err != nil {
-		return err
-	}
-	cleaned := filepath.Clean(filepath.Join(m.root, id))
-	if filepath.Dir(cleaned) != m.root {
-		return fmt.Errorf("refused to delete: %s is not a direct child of %s", cleaned, m.root)
-	}
-	if err := os.RemoveAll(cleaned); err != nil {
-		return toolerr.Newf(toolerr.CodeWorkspaceFailed, "remove workspace: %v", err)
-	}
-	return nil
 }
