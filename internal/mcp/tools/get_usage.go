@@ -30,7 +30,7 @@ const Instructions = "gem-scribe transcribes recordings with Vertex AI's dedicat
 func registerGetUsage(srv *mcpserver.Server, d *Deps) {
 	srv.RegisterTool(mcpserver.Tool{
 		Name: "get_usage",
-		Description: "Return this server's operating manual (markdown): the workspace model and workspace_root, " +
+		Description: "Return this server's operating manual (markdown): the workspace model and work_dir, " +
 			"the transcribe arguments, the async job lifecycle (transcribe -> job_id -> check_job), how " +
 			"transcripts are returned, what the warning field means, and the error recovery table. " +
 			"Call it once before your first transcription.",
