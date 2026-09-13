@@ -118,3 +118,21 @@ func TestNoToolDescriptionNamesARetiredWorkDirName(t *testing.T) {
 		}
 	}
 }
+
+// The initialize `instructions` field is the first thing the model reads about
+// this server — before any tool list — so the contract has to survive there
+// too. It did not: the string described "a workspace directory you prepare"
+// and never named the argument, while every tool required it.
+func TestInstructionsNameTheWorkDirContract(t *testing.T) {
+	for _, want := range []string{"work_dir", "absolute", "required"} {
+		if !strings.Contains(Instructions, want) {
+			t.Errorf("the initialize instructions do not mention %q; a model that "+
+				"reads only this will omit an argument every tool requires", want)
+		}
+	}
+	for _, old := range retiredWorkDirNames {
+		if strings.Contains(Instructions, old) {
+			t.Errorf("the initialize instructions name %q; the name is work_dir", old)
+		}
+	}
+}
