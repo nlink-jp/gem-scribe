@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.2] - 2026-09-14
+
+### Changed
+
+- **A relative `audio` is now looked for in `work_dir` itself as well as in the
+  workspace** (the workspace wins if both hold the name). The workspace is a
+  level below the work directory the caller named, which is not where an agent
+  that has just written a file puts it: two real sessions lost rounds to exactly
+  that. An absolute path anywhere readable was already accepted, so resolving a
+  relative name one level up costs no containment.
+- **An absolute `audio` that is not there now says where the file actually is**,
+  when a file of that name sits in the workspace or the work directory. A
+  session passed `<work_dir>/x.aiff` for a file at `<work_dir>/<id>/x.aiff` and
+  spent a round discovering the level. The search is those two directories
+  only — never a tree walk.
+
 ## [0.4.1] - 2026-09-14
 
 ### Fixed

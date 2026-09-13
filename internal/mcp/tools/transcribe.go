@@ -33,7 +33,7 @@ func registerTranscribe(srv *mcpserver.Server, d *Deps) {
   "required": ["work_dir", "audio"],
   "properties": {
     "work_dir": {"type": "string", "description": "Absolute path to a directory you can read back \u2014 your session or working directory. The workspace is <work_dir>/<workspace_id>/ and the transcript is written there, so a directory you cannot open leaves you holding a path to nothing. It must already exist, and nothing here expands ~ or resolves a relative path."},
-    "audio": {"type": "string", "description": "Recording to transcribe: a path relative to the workspace (which is <work_dir>/<workspace_id>/, a level below work_dir itself), or an absolute path to a recording anywhere you can read \u2014 it is read in place, never copied. Credential and agent-control locations (~/.ssh, ~/.aws and the like) are refused."},
+    "audio": {"type": "string", "description": "Recording to transcribe: a relative name, looked for in the workspace (<work_dir>/<workspace_id>/) and then in work_dir itself, or an absolute path to a recording anywhere you can read \u2014 it is read in place, never copied. Credential and agent-control locations (~/.ssh, ~/.aws and the like) are refused."},
     "workspace_id": {"type": "string", "description": "Workspace within work_dir; defaults to \"default\""},
     "model": {"type": "string", "description": "Transcription model; omit to use the configured one"},
     "languages": {"type": "array", "items": {"type": "string"}, "description": "BCP-47 hints such as [\"ja-JP\"]; omit to detect"},
@@ -217,14 +217,38 @@ func resolveAudio(ws *workspace.Workspace, audio string) (string, string, error)
 		}
 		// The decoder cannot inherit os.Root, so the containment check happens
 		// here, immediately before the absolute path is handed over.
-		if err := ws.VerifyRegular(rel); err != nil {
-			return "", "", err
+		wsErr := ws.VerifyRegular(rel)
+		if wsErr == nil {
+			return ws.Path(rel), rel, nil
 		}
-		return ws.Path(rel), rel, nil
+		// Not in the workspace. Before reporting that, look one level up, in
+		// the work directory the caller named: an agent that has just written
+		// a file puts it where it is working, not in a subdirectory it did not
+		// choose, and two real sessions (2026-09-14) lost rounds to exactly
+		// that. The work directory is the caller's own and already validated,
+		// and an absolute path anywhere readable is accepted regardless
+		// (ADR-0010), so this costs no containment — only the ambiguity of two
+		// roots, which the workspace wins.
+		if alt := filepath.Join(filepath.Dir(ws.BaseDir), rel); fileExists(alt) {
+			if why := workdir.Sensitive(alt); why != "" {
+				return "", "", toolerr.Newf(toolerr.CodePathNotAllowed, "audio %q is refused: %s", alt, why)
+			}
+			return alt, filepath.Base(alt), nil
+		}
+		return "", "", wsErr
 	}
 
 	resolved, err := filepath.EvalSymlinks(audio)
 	if err != nil {
+		// An agent that guessed the wrong level guesses again unless the
+		// error points at the file it can see. A session on 2026-09-14 passed
+		// <work_dir>/x.aiff for a file that was at <work_dir>/<id>/x.aiff and
+		// spent a round finding that out.
+		if near := nearby(ws, filepath.Base(audio)); near != "" {
+			return "", "", toolerr.Newf(toolerr.CodeInputNotFound,
+				"audio %q cannot be read: %v. There is a file of that name at %s — did you mean that?",
+				audio, err, near)
+		}
 		return "", "", toolerr.Newf(toolerr.CodeInputNotFound,
 			"audio %q cannot be read: %v", audio, err)
 	}
@@ -297,4 +321,23 @@ func classify(err error) error {
 	default:
 		return toolerr.New(toolerr.CodeTranscribeFailed, msg)
 	}
+}
+
+// fileExists reports whether path is a regular file.
+func fileExists(path string) bool {
+	fi, err := os.Lstat(path)
+	return err == nil && fi.Mode().IsRegular()
+}
+
+// nearby looks for base in the workspace and in the work directory above it,
+// so an "it is not there" error can say where it actually is. It searches those
+// two directories only — never a tree walk, which would turn a typo into a
+// filesystem scan.
+func nearby(ws *workspace.Workspace, base string) string {
+	for _, cand := range []string{ws.Path(base), filepath.Join(filepath.Dir(ws.BaseDir), base)} {
+		if fileExists(cand) {
+			return cand
+		}
+	}
+	return ""
 }

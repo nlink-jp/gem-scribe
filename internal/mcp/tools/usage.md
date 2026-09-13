@@ -26,8 +26,11 @@ transcription project:
   default: it must already exist, and nothing here expands `~` or resolves a
   relative path.
 - `workspace_id` — `[a-zA-Z0-9_-]{1,64}`, defaults to `default`.
-- `audio` may be **relative to the workspace, or an absolute path to a recording
-  anywhere you can read** — it is read in place, never copied. Credential and
+- `audio` may be **relative, or an absolute path to a recording anywhere you can
+  read** — it is read in place, never copied. A relative name is looked for in
+  the workspace and then in `work_dir` itself (the workspace wins if both hold
+  it), so a file you just wrote next to your work directory is found without
+  moving it. Credential and
   agent-control locations (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.config/gcloud`,
   `~/Library/Keychains`, `~/.claude`, `~/.codex`, any `.env`) are refused.
 - Every other path argument is **relative to the workspace** and cannot escape
@@ -46,7 +49,7 @@ Starts a transcription and returns a `job_id` immediately. It does not wait.
 | Argument | Default | Notes |
 |---|---|---|
 | `work_dir` (required) | — | Absolute path of a directory you can read back |
-| `audio` (required) | — | Workspace-relative, or an absolute path read in place |
+| `audio` (required) | — | Relative to the workspace or to `work_dir`, or an absolute path read in place |
 | `workspace_id` | `default` | See above |
 | `model` | configured model | Override the transcription model |
 | `languages` | detect | BCP-47 hints, e.g. `["ja-JP"]` |

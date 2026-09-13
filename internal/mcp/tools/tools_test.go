@@ -393,3 +393,39 @@ func TestMissingAudioErrorNamesThePathAndTheEscape(t *testing.T) {
 		t.Errorf("error does not offer the absolute-path escape: %q", msg)
 	}
 }
+
+// TestRelativeAudioFallsBackToTheWorkDir: an agent that has just written a file
+// puts it where it is working, not in a subdirectory it did not choose. Two
+// real sessions (2026-09-14, voice-scribe) lost rounds to the workspace being
+// one level below the work directory, so a relative name is looked for in both.
+func TestRelativeAudioFallsBackToTheWorkDir(t *testing.T) {
+	h := newHarness(t)
+	if err := os.WriteFile(filepath.Join(h.root, "loose.m4a"), []byte("audio"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, err := h.call(t, "transcribe", `{"audio":"loose.m4a"}`)
+	if err != nil {
+		t.Fatalf("a recording in the work directory must be found: %v", err)
+	}
+	jobID, ok := out.(map[string]any)["job_id"].(string)
+	if !ok {
+		t.Fatalf("transcribe did not enqueue: %v", out)
+	}
+	// Drain it: a job still writing when the test returns races TempDir cleanup.
+	if st := h.await(t, jobID); st["state"] != "done" {
+		t.Fatalf("job did not finish: %v", st)
+	}
+}
+
+// TestAbsoluteAudioAtTheWrongLevelIsPointedAtTheRightOne is the regression for
+// a session that passed <work_dir>/x.aiff for a file at <work_dir>/<id>/x.aiff.
+func TestAbsoluteAudioAtTheWrongLevelIsPointedAtTheRightOne(t *testing.T) {
+	h := newHarness(t)
+	_, err := h.call(t, "transcribe", `{"audio":`+strconv.Quote(filepath.Join(h.root, "meeting.m4a"))+`}`)
+	if err == nil {
+		t.Fatal("a path one level too high must fail")
+	}
+	if !strings.Contains(err.Error(), filepath.Join(h.root, "default", "meeting.m4a")) {
+		t.Errorf("error does not point at the file that is actually there: %q", err)
+	}
+}
