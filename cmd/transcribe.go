@@ -138,7 +138,7 @@ func transcribeOne(ctx context.Context, cfg *config.Config, input string, opts a
 		if err != nil {
 			return transcript.Result{}, err
 		}
-		defer up.Close()
+		defer func() { _ = up.Close() }()
 		uploader = up
 	}
 

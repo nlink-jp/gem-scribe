@@ -62,7 +62,7 @@ func (u *GCSUploader) Upload(ctx context.Context, localPath string) (string, fun
 	if err != nil {
 		return "", nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	object := u.client.Bucket(u.bucket).Object(name)
 	w := object.NewWriter(ctx)

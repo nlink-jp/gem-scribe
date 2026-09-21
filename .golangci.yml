@@ -1,0 +1,19 @@
+version: "2"
+
+linters:
+  settings:
+    errcheck:
+      # Writes to the CLI's own stdout/stderr. There is nothing to do with the
+      # error — reporting a failed write to the stream that just failed is
+      # circular, and the process exit code already carries the outcome.
+      #
+      # This is the ONLY errcheck exclusion, and the sibling tools carry the
+      # same one. Everything else stays on deliberately: an unchecked Close on a
+      # file this tool wrote is a real defect class, and the workspace's atomic
+      # write is atomic only because its Close error is checked before the
+      # rename. Every other unchecked return is written `_ =` at the call site
+      # with the reason beside it.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln

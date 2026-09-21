@@ -147,7 +147,7 @@ func TestValidateRefusesServerOwnedDirectories(t *testing.T) {
 	if err := os.Mkdir(sibling, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(sibling)
+	defer func() { _ = os.RemoveAll(sibling) }()
 	if _, err := r.Validate(sibling); err != nil {
 		t.Errorf("Validate(%q) = %v, want accepted", sibling, err)
 	}

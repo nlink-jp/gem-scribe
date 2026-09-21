@@ -21,7 +21,9 @@ func claimStdout() (*os.File, error) {
 		return nil, fmt.Errorf("duplicate stdout for the MCP transport: %w", err)
 	}
 	if err := syscall.Dup2(int(os.Stderr.Fd()), int(os.Stdout.Fd())); err != nil {
-		syscall.Close(fd)
+		// The redirect failed; this only releases the duplicate before
+		// reporting that, and its own failure adds nothing.
+		_ = syscall.Close(fd)
 		return nil, fmt.Errorf("redirect stdout to stderr: %w", err)
 	}
 	return os.NewFile(uintptr(fd), "mcp-stdout"), nil

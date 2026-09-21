@@ -91,10 +91,7 @@ func (s *Server) handleToolsCall(ctx context.Context, req jsonrpc.Request) error
 	// Rich-content path: handler returned a RawResult, take its content blocks
 	// verbatim.
 	if raw, ok := out.(RawResult); ok {
-		return s.writeResult(req.ID, toolsCallResult{
-			Content: raw.Content,
-			IsError: raw.IsError,
-		})
+		return s.writeResult(req.ID, toolsCallResult(raw))
 	}
 	// Default path: JSON-marshal the return value into a single text block.
 	body, err := json.Marshal(out)

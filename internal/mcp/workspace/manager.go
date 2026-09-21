@@ -94,7 +94,7 @@ func (w *Workspace) ReadFile(rel string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	b, err := r.ReadFile(rel)
 	return b, mapRootErr("read", rel, err)
 }
@@ -106,7 +106,7 @@ func (w *Workspace) WriteFileAtomic(rel string, data []byte) error {
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	if dir := filepath.Dir(rel); dir != "." {
 		if err := r.MkdirAll(dir, 0o755); err != nil {
 			// A path component replaced by a symlink (or file) surfaces as
@@ -134,7 +134,7 @@ func (w *Workspace) Stat(rel string) (fs.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	fi, err := r.Stat(rel)
 	return fi, mapRootErr("stat", rel, err)
 }
@@ -145,7 +145,7 @@ func (w *Workspace) MkdirAll(rel string) error {
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	return mapRootErr("mkdir", rel, r.MkdirAll(rel, 0o755))
 }
 
@@ -155,7 +155,7 @@ func (w *Workspace) RemoveAll(rel string) error {
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	return mapRootErr("remove", rel, r.RemoveAll(rel))
 }
 
@@ -172,7 +172,7 @@ func (w *Workspace) VerifyRegular(rel string) error {
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	fi, err := r.Lstat(rel)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {

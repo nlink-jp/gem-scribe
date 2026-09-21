@@ -43,7 +43,9 @@ func runMCP(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	defer protocolOut.Close()
+	// The transport is done with by then; a failure to close it has nobody
+	// left to tell.
+	defer func() { _ = protocolOut.Close() }()
 
 	deps := &tools.Deps{
 		WS:         workspace.NewManager(),

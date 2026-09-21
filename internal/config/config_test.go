@@ -32,14 +32,13 @@ func write(t *testing.T, content string) string {
 func TestLoad_Defaults(t *testing.T) {
 	clearEnv(t)
 
-	cfg, err := Load(filepath.Join(t.TempDir(), "absent.toml"))
-	if err == nil {
+	if _, err := Load(filepath.Join(t.TempDir(), "absent.toml")); err == nil {
 		t.Fatal("an explicitly named missing file should be an error")
 	}
 
 	// The default path is allowed to be absent, so load through it instead.
 	t.Setenv("HOME", t.TempDir())
-	cfg, err = Load("")
+	cfg, err := Load("")
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
