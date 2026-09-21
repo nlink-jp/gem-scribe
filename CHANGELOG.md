@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   informational `spctl` line may be ignored. Matches the org template
   (CONVENTIONS.md §Code Signing → Verifying a release).
 
+### Tests
+
+- The per-tool contract tests fail when no tool is registered. They loop over
+  the registered tools, and with an empty list every one of them passed without
+  examining anything.
+
 ## [0.4.5] - 2026-09-21
 
 ### Security
