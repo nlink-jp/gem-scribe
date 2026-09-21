@@ -121,7 +121,11 @@ Transcription is asynchronous: `transcribe` returns a `job_id` that `check_job`
 polls. Every call names `work_dir` — the absolute path of a directory the agent
 can read back — and the transcript is written under it; a recording may sit
 there or be named by an absolute path anywhere readable, read in place and never
-copied (credential locations such as `~/.ssh` are refused). The server
+copied (credential locations such as `~/.ssh` are refused). A `work_dir`
+naming a system location, your home directory itself, a credential or
+agent-control location, or **this server's own config directory
+(`~/.config/gem-scribe`)** is refused with `work_dir_denied`, subdirectories
+included: the work directory is yours, and ours is not a workspace. The server
 writes only under its `output/` subdirectory, and paths cannot escape it. Call
 `get_usage` first — it returns the full manual, including the error-recovery
 table.

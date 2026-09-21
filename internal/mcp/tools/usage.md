@@ -152,7 +152,7 @@ Every failure carries a stable `code`. Branch on the code, not the prose.
 | `work_dir_invalid` | Not absolute, started with `~`, or contained `..` | Pass the path you mean, spelled out |
 | `work_dir_not_found` | Not there, or not a directory | It is your directory, so this is a typo — the server does not create it |
 | `work_dir_not_writable` | The server cannot write there | Pass a directory you own |
-| `work_dir_denied` | A system location, your home directory itself, or a credential directory | Pass your session or working directory |
+| `work_dir_denied` | A system location, your home directory itself, a credential directory, or this server's own config directory (`~/.config/gem-scribe`) | Pass your session or working directory |
 | `workspace_failed` | The workspace could not be created or read | Check the root exists and is writable |
 | `input_not_found` | The recording is not in the workspace | Put the file there first; the server does not fetch |
 | `unsupported_format` | Not an audio container the model reads | Convert to wav, mp3, m4a, flac, ogg, opus, aiff or webm |

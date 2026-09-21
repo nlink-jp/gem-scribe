@@ -5,11 +5,9 @@ import (
 	"os"
 
 	"github.com/nlink-jp/gem-scribe/internal/config"
-	"github.com/nlink-jp/gem-scribe/internal/mcp/job"
 	"github.com/nlink-jp/gem-scribe/internal/mcp/mcpserver"
 	"github.com/nlink-jp/gem-scribe/internal/mcp/tools"
 	"github.com/nlink-jp/gem-scribe/internal/mcp/transport"
-	"github.com/nlink-jp/gem-scribe/internal/mcp/workspace"
 	"github.com/spf13/cobra"
 )
 
@@ -47,11 +45,7 @@ func runMCP(cmd *cobra.Command, args []string) error {
 	// left to tell.
 	defer func() { _ = protocolOut.Close() }()
 
-	deps := &tools.Deps{
-		WS:         workspace.NewManager(),
-		Transcribe: newMCPTranscriber(cfg),
-		Jobs:       job.NewManager(cmd.Context()),
-	}
+	deps := newToolDeps(cmd.Context(), cfg)
 
 	srv := mcpserver.New("gem-scribe", Version, transport.NewStdioTransport(os.Stdin, protocolOut), nil)
 	srv.SetInstructions(tools.Instructions)

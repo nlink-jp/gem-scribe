@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Security
+
+- **`work_dir` may no longer be this server's own config directory.**
+  Organization ADR-021 §4 closes the work-directory checks with "not a system
+  location … and not the server's own config or state directory" →
+  `work_dir_denied`, and the resolver has carried a `Denied` list for exactly
+  that — but nothing populated it here, so it ran as its zero value. A caller
+  could pass `work_dir = ~/.config/gem-scribe` and have the server write
+  transcripts in among the file that names the Vertex project, region and
+  staging bucket — and read that file back out as workspace contents — on a
+  model's say-so. `~/.config/gem-scribe` and everything under it is now
+  refused. The path is derived from `config.DefaultPath`, the one place that
+  names the config file, so the denial cannot drift away from the location it
+  protects, and the resolver is built in one place (`workDirResolver()`) that
+  every tool reaches through `tools.Deps`.
+
 ## [0.4.4] - 2026-09-21
 
 ### Security
