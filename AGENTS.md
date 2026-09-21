@@ -60,6 +60,17 @@ gem-scribe/
 
 Everything here was measured, not assumed.
 
+- **Containment: the workspace base is verified by real path, because the path
+  is handed to code outside any root.** `os.Root` contains operations *within*
+  the root but resolves the root path itself normally — measured: `os.OpenRoot`
+  on a symlink anchors on the link's target and writes through it without
+  error. A link planted at `<work_dir>/<id>` therefore put every read and write
+  outside `work_dir` while the call reported success. `workspace.makeBaseDir`
+  creates the directory through an `os.Root` on `work_dir` **and** compares
+  `filepath.EvalSymlinks` of the result against `<real work_dir>/<id>`; the
+  comparison is the part that must stay, because `w.BaseDir` is afterwards
+  passed to `os.OpenRoot` and to the staging/upload path.
+  `TestEnsureUnderRefusesLinkedWorkspaceDir` pins it.
 - **The Gemini 3 family is served from `global` only.** Regional endpoints
   return 404 with a message about the model name. `asr.hintGlobalEndpoint`
   annotates it; do not remove that without a replacement.

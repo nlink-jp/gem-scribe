@@ -170,7 +170,9 @@ are deleted after the transcription.
 
 - **Path containment** — every workspace path is validated and enforced with
   `os.Root`, so a symlink planted in an agent-writable workspace cannot make the
-  server read or write outside it
+  server read or write outside it. The workspace directory itself is verified by
+  real path: a symlink planted at `<work_dir>/<workspace_id>` is refused rather
+  than followed, because that path is handed to code outside any root
 - **stdout is claimed by the MCP transport** — fd 1 is redirected to stderr, so
   a stray write from any dependency lands in the log instead of corrupting the
   protocol

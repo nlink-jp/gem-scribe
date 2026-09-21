@@ -216,16 +216,51 @@ func (m *Manager) EnsureUnder(workDir, id string) (*Workspace, error) {
 	if err := ValidateID(id); err != nil {
 		return nil, err
 	}
-	base := filepath.Join(filepath.Clean(workDir), id)
-	// Mkdir, not MkdirAll: the work directory itself is the caller's and must
-	// already exist, so a missing parent here is a caller mistake worth
-	// hearing about rather than a tree to conjure up.
-	if err := os.Mkdir(base, 0o755); err != nil && !errors.Is(err, fs.ErrExist) {
-		return nil, toolerr.Newf(toolerr.CodeWorkspaceFailed, "create workspace dir: %v", err)
+	workDir = filepath.Clean(workDir)
+	if err := makeBaseDir(workDir, id); err != nil {
+		return nil, err
 	}
-	w := &Workspace{ID: id, BaseDir: base}
+	w := &Workspace{ID: id, BaseDir: filepath.Join(workDir, id)}
 	if err := w.MkdirAll(DirOutput); err != nil {
 		return nil, err
 	}
 	return w, nil
+}
+
+// makeBaseDir creates <workDir>/<id> and refuses a workspace whose directory
+// is not really there. work_dir is the one path the caller vouched for; <id>
+// beneath it may be a link, planted by any other tool with write access to the
+// work directory. The directory is made through an os.Root on work_dir, which
+// refuses a path that leaves it, and what was made is then compared with what
+// was asked for, because the base directory is afterwards handed to code
+// outside any root: os.Root contains operations *within* the root but resolves
+// the root path itself normally, so os.OpenRoot on a planted link anchors on
+// the link's target and every subsequent read and write lands outside work_dir
+// while reporting success.
+func makeBaseDir(workDir, id string) error {
+	root, err := os.OpenRoot(workDir)
+	if err != nil {
+		return toolerr.Newf(toolerr.CodeWorkspaceFailed, "open work_dir: %v", err)
+	}
+	defer func() { _ = root.Close() }()
+	// Mkdir, not MkdirAll: the work directory itself is the caller's and must
+	// already exist, so a missing parent here is a caller mistake worth
+	// hearing about rather than a tree to conjure up.
+	if err := root.Mkdir(id, 0o755); err != nil && !errors.Is(err, fs.ErrExist) {
+		return toolerr.Newf(toolerr.CodeWorkspaceFailed, "create workspace dir: %v", err)
+	}
+	realBase, err := filepath.EvalSymlinks(workDir)
+	if err != nil {
+		return toolerr.Newf(toolerr.CodeWorkspaceFailed, "resolve work_dir: %v", err)
+	}
+	want := filepath.Join(realBase, id)
+	got, err := filepath.EvalSymlinks(filepath.Join(workDir, id))
+	if err != nil {
+		return toolerr.Newf(toolerr.CodeWorkspaceFailed, "resolve workspace dir: %v", err)
+	}
+	if got != want {
+		return toolerr.Newf(toolerr.CodePathNotAllowed,
+			"refused: workspace %q is a link to %s, not a directory under work_dir", id, got)
+	}
+	return nil
 }

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Security
+
+- **A symlink planted at `<work_dir>/<workspace_id>` no longer redirects the
+  whole workspace.** `os.Root` confines operations inside a root but resolves
+  the root path itself normally, so if anything else with write access to your
+  work directory (another tool, sandboxed code) left a link at the workspace's
+  name, every read and write anchored on the link's target: transcripts were
+  written outside the directory you named and the call reported success. The
+  workspace directory is now created through an `os.Root` on `work_dir` and
+  then verified by real path; a workspace whose name resolves elsewhere is
+  refused with `path_not_allowed`, naming the id and what it resolved to.
+
 ## [0.4.3] - 2026-09-14
 
 ### Added

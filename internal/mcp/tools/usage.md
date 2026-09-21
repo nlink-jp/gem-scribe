@@ -35,7 +35,10 @@ transcription project:
   `~/Library/Keychains`, `~/.claude`, `~/.codex`, any `.env`) are refused.
 - Every other path argument is **relative to the workspace** and cannot escape
   it. `..` is refused (`path_not_allowed`), and symlinks planted in the
-  workspace cannot redirect the server outside it.
+  workspace cannot redirect the server outside it. The workspace directory
+  itself is checked the same way: if `<work_dir>/<workspace_id>` is a symlink
+  rather than a real directory, the call is refused instead of silently working
+  somewhere else.
 - Your runtime may supply the work directory for you by setting
   `_meta["jp.nlink/work_dir"]` on the call; the argument always wins, and every
   result echoes the `work_dir` that was used.
@@ -144,7 +147,7 @@ Every failure carries a stable `code`. Branch on the code, not the prose.
 | `missing_argument` | A required argument was absent | Supply it |
 | `invalid_arguments` | Unknown field, wrong type, or a bad `format` | Fix the call; unknown fields are rejected rather than ignored |
 | `invalid_workspace_id` | `workspace_id` is not `[a-zA-Z0-9_-]{1,64}` | Rename it |
-| `path_not_allowed` | A relative path pointed outside the workspace, or a recording resolved into a credential location | Use a workspace-relative path, or a recording somewhere ordinary |
+| `path_not_allowed` | A relative path pointed outside the workspace, the workspace directory was itself a symlink, or a recording resolved into a credential location | Use a workspace-relative path, a `workspace_id` that is a real directory under `work_dir`, or a recording somewhere ordinary |
 | `work_dir_required` | No `work_dir` argument, and your runtime attached no hint | Pass the absolute path of a directory you can read back |
 | `work_dir_invalid` | Not absolute, started with `~`, or contained `..` | Pass the path you mean, spelled out |
 | `work_dir_not_found` | Not there, or not a directory | It is your directory, so this is a typo — the server does not create it |
