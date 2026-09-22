@@ -132,6 +132,7 @@ included: the work directory is yours, and ours is not a workspace. The server
 writes only under its `output/` subdirectory, and paths cannot escape it. Call
 `get_usage` first — it returns the full manual, including the error-recovery
 table.
+Two spellings still get past it — a name in another Unicode normalisation and a hard link; the limits are listed in [ADR-0004](docs/en/adr/0004-pathguard.md).
 
 Register it with your client, for example:
 
