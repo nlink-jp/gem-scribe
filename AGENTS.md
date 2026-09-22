@@ -128,7 +128,7 @@ Everything here was measured, not assumed.
 - **Whether a recording exists never changes the answer.** `resolveAudio`
   places every path it may read — an absolute `audio`, both candidates of a
   relative one (workspace, then `work_dir`), the did-you-mean hint's
-  candidates — with `workdir.Where` (the last of pathguard's forms) and judges
+  candidates — with `workdir.Where` (`pathguard.Where`, the end of the walk) and judges
   it there with `refusal` before anything asks whether a file exists, each
   relative candidate before it is looked at; for an absolute path existence is
   then asked of the place (`EvalSymlinks(where)`), not re-walked from the

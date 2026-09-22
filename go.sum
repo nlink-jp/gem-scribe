@@ -72,8 +72,8 @@ github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aN
 github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
-github.com/nlink-jp/pathguard v0.2.0 h1:5Hnm9EbDO7aEO9G9mzQmfdU5sar7iNivJ1Ug+uBYL2k=
-github.com/nlink-jp/pathguard v0.2.0/go.mod h1:MT2qgbWWm8vTVOZ2SUSwcDS7VBAxCmrc3HTwULtWb/E=
+github.com/nlink-jp/pathguard v0.3.0 h1:4PA9txAJrGzBSxhynwPmBuvRLw4JsfQHnbjkK7njVq8=
+github.com/nlink-jp/pathguard v0.3.0/go.mod h1:MT2qgbWWm8vTVOZ2SUSwcDS7VBAxCmrc3HTwULtWb/E=
 github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 h1:GFCKgmp0tecUJ0sJuv4pzYCqS9+RGSn52M3FUwPs+uo=
 github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10/go.mod h1:t/avpk3KcrXxUnYOhZhMXJlSEyie6gQbtLq5NM3loB8=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 h1:Jamvg5psRIccs7FGNTlIRMkT8wgtp5eCXdBlqhYGL6U=

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- A path's place is nlink-jp/pathguard v0.3.0's `Where`, the end of its walk.
+  It was the last of pathguard's forms, which is a middle hop when a chain of
+  links comes back to a spelling it already passed.
+
+### Documentation
+
+- ADR-0004 records why `audio` stays on pathguard's Local policy although it is
+  sent to Google: the recipient is the operator's own Google Cloud project, and
+  a file that is not audio fails to transcribe and returns nothing.
+
 ## [0.5.2] - 2026-09-22
 
 ### Security
