@@ -15,6 +15,7 @@ import (
 	"github.com/nlink-jp/gem-scribe/internal/mcp/job"
 	"github.com/nlink-jp/gem-scribe/internal/mcp/mcpserver"
 	"github.com/nlink-jp/gem-scribe/internal/mcp/toolerr"
+	"github.com/nlink-jp/gem-scribe/internal/mcp/workdir"
 	"github.com/nlink-jp/gem-scribe/internal/mcp/workspace"
 	"github.com/nlink-jp/gem-scribe/internal/transcript"
 )
@@ -73,6 +74,7 @@ func newHarness(t *testing.T) *harness {
 	srv := mcpserver.New("gem-scribe", "test", nil, nil)
 	Register(srv, &Deps{
 		WS:         workspace.NewManager(),
+		WorkDir:    workdir.NewResolver(t.TempDir()),
 		Transcribe: fake,
 		Jobs:       job.NewManager(context.Background()),
 	})

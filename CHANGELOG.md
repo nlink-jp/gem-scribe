@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Path judgement moved to [nlink-jp/pathguard](https://github.com/nlink-jp/pathguard)**
+  (ADR-0004). `internal/mcp/workdir` is now an adapter onto it; the resolver is
+  built with `workdir.NewResolver(serverOwnedDirs()...)`. Places are compared by
+  file identity and by names folded the way the disk folds them, instead of by
+  name.
+- `transcribe` now **refuses** the real places under your home from the list
+  gem-agent and lagent use — newly `~/.kube`, `~/.config/gh`, `~/.azure`,
+  `~/.terraform.d`, `~/.gemini`, `~/.config/mcp-bridge`, `~/.netrc`, `~/.npmrc`,
+  `~/.pypirc`, `~/.git-credentials`, `~/.vault-token`, `~/.docker/config.json`,
+  `~/.claude.json`, `~/.bash_history`, `~/.zsh_history` — and every spelling of
+  any refused place (another case, a link, a firmlink). Linux `/etc` is refused
+  as a `work_dir`.
+- `transcribe` now **accepts** `.env.example`, `.env.sample`, `.env.template` and
+  `.env.dist` as audio paths (templates, not secrets).
+- When the home directory cannot be determined, audio paths and every
+  `work_dir` are **refused**; they used to pass unchecked.
+- `work_dir_denied` carries `reason` in its `details`.
+
 ### Fixed
 
 - **`make verify-release` now fails closed.** Its last block chained unzip, the

@@ -5,6 +5,7 @@ go 1.27.0
 require (
 	cloud.google.com/go/storage v1.66.0
 	github.com/BurntSushi/toml v1.6.0
+	github.com/nlink-jp/pathguard v0.1.0
 	github.com/spf13/cobra v1.10.2
 	google.golang.org/genai v1.70.0
 )

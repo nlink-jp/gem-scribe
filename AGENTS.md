@@ -104,16 +104,22 @@ Everything here was measured, not assumed.
 - **The transcription model is preview.** No GA equivalent exists. The
   second-pass model is deliberately GA so a supporting stage does not inherit a
   preview retirement schedule.
+- **The path judgement is nlink-jp/pathguard's, not this repository's.**
+  `internal/mcp/workdir` only takes `_meta` from the context and carries
+  pathguard's errors onto `toolerr` (ADR-0004). Do not add a location list or a
+  name comparison here; a fix to the judgement is a pathguard release and a
+  dependency bump.
 - **`workdir.Resolver` is built in exactly one place** — `workDirResolver()`
-  in `cmd/mcp_wiring.go`, reached only through `newToolDeps`. Its `Denied` list
-  carries this server's own directories (organization ADR-021 §4), which today
-  is `configDir()` = `filepath.Dir(config.DefaultPath())` = `~/.config/gem-scribe`,
+  in `cmd/mcp_wiring.go`, reached only through `newToolDeps`, with
+  `workdir.NewResolver(serverOwnedDirs()...)`. Those are this server's own
+  directories (organization ADR-021 §4), which today is
+  `configDir()` = `filepath.Dir(config.DefaultPath())` = `~/.config/gem-scribe`,
   the file holding the Vertex project, region and staging bucket. Deriving it
   from `config.DefaultPath` is the point: a second spelling is how a denial
   drifts away from the location it protects. There is no state directory —
   transcripts go under the caller's `work_dir` and staged audio goes to Cloud
-  Storage. Do not write `workdir.Resolver{}` in a tool: an empty `Denied` is a
-  resolver that lets a caller point us at our own configuration.
+  Storage. A zero `workdir.Resolver{}` refuses every call, and so does an empty
+  server directory — tests build one with `workdir.NewResolver(t.TempDir())`.
 
 ## Testing notes
 

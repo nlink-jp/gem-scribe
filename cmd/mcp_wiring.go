@@ -40,20 +40,18 @@ func newToolDeps(ctx context.Context, cfg *config.Config) *tools.Deps {
 // its own credentials-adjacent configuration — and read that configuration
 // back out as workspace contents — on a model's say-so.
 func workDirResolver() workdir.Resolver {
-	return workdir.Resolver{Denied: serverOwnedDirs()}
+	return workdir.NewResolver(serverOwnedDirs()...)
 }
 
 // serverOwnedDirs lists this server's own config and state directories.
 //
 // There is one: the config directory. This server keeps no state on disk —
 // transcripts go under the caller's `work_dir` and staged audio goes to Cloud
-// Storage. If a state directory is ever added it belongs here.
+// Storage. If a state directory is ever added it belongs here. An empty one
+// (no home directory) is passed on, and refuses every call rather than
+// protecting nothing.
 func serverOwnedDirs() []string {
-	dir := configDir()
-	if dir == "" {
-		return nil
-	}
-	return []string{dir}
+	return []string{configDir()}
 }
 
 // configDir is the directory holding this server's own config.toml, derived

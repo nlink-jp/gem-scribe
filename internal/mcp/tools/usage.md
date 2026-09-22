@@ -30,9 +30,12 @@ transcription project:
   read** — it is read in place, never copied. A relative name is looked for in
   the workspace and then in `work_dir` itself (the workspace wins if both hold
   it), so a file you just wrote next to your work directory is found without
-  moving it. Credential and
-  agent-control locations (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.config/gcloud`,
-  `~/Library/Keychains`, `~/.claude`, `~/.codex`, any `.env`) are refused.
+  moving it. Credential and agent-control locations under your home are refused
+  (`~/.ssh`, `~/.aws`, `~/.kube`, `~/.gnupg`, `~/.config/gcloud`, `~/.config/gh`,
+  `~/.netrc`, `~/Library/Keychains`, `~/.claude`, `~/.codex` and the rest of the
+  list gem-agent and lagent use), and so is any `.env` file except its templates
+  (`.env.example`, `.env.sample`, `.env.template`, `.env.dist`) — under any
+  spelling: another case, a link, the path as given or resolved.
 - Every other path argument is **relative to the workspace** and cannot escape
   it. `..` is refused (`path_not_allowed`), and symlinks planted in the
   workspace cannot redirect the server outside it. The workspace directory
