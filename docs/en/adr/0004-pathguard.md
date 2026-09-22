@@ -117,6 +117,25 @@ fix (voice-scribe ADR-0013, amendment).
 - The judgement and the read are two steps, and a link swapped in between them is followed: a
   check-to-use race, not closed here (closing it means judging what was opened, by its descriptor).
 
+## Amendment (2026-09-22): the floor stays Local — why
+
+`transcribe`'s `audio` reaches Google (directly in the Vertex AI request up to 20 MB, through the operator's Cloud
+Storage bucket above that). Organization ADR-021 §7 says a server that sends a file to an external service takes its
+input only from under `work_dir`, and organization ADR-022 §3 defines the Outbound policy for a file that leaves the
+machine (Local, plus a secret's name such as `id_rsa` and a path through a credential directory's name, anywhere).
+gem-scribe nevertheless stays on Local.
+
+- The recipient is the operator's own Google Cloud project (Vertex AI and its bucket), not somewhere a third party can
+  read. The two users of Outbound differ in their recipient: slack-mcp-extender's uploads are visible to a channel's
+  members, and chrome-pilot-mcp's `upload_file` hands a page a file it can send anywhere.
+- A credential file passed as audio fails to transcribe, and its content does not come back to the model. The
+  credential places under the home (`~/.ssh` and the like) and `.env` are already refused under Local. What gets
+  through is only a copy under a secret's name outside the home (`/tmp/x/id_rsa`, say) sent to the operator's own
+  project.
+- Outbound, or confining `audio` to `work_dir`, would narrow "pass a recording from anywhere" (ADR-0002). With that one
+  case as the whole gain, it is recorded as an accepted residual, on the operator's rule: judge by an overall risk
+  assessment rather than chase perfection.
+
 ## References
 
 - Organization ADR-021 (the work-dir contract of the file-mediated MCP servers)
