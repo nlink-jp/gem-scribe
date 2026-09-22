@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.2] - 2026-09-22
+
+### Security
+
+- **Whether a file exists no longer changes the answer.** An `audio` path in a
+  credential or agent-control location was refused when the file was there and
+  reported `input_not_found` when it was not, so the answer told the caller
+  which secrets exist. Every place a recording may be read from — an absolute
+  path, both places a relative name may mean, the "there is a file of that
+  name at …" hint — is now judged before it is looked at, and a refused place
+  gets the same answer either way (ADR-0004, amendment).
+- The hint no longer names a place the floor refuses, and a `.env` file in the
+  workspace is refused like one anywhere else (it was answered
+  `unsupported_format` when present).
+
+### Changed
+
+- An absolute `audio` with `..` after a file or a missing name is opened where
+  pathguard places it (the `..` applied to what exists) rather than answered
+  `input_not_found` as the kernel would.
+
 ## [0.5.1] - 2026-09-22
 
 ### Security
