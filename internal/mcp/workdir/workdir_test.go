@@ -222,7 +222,11 @@ func TestSensitiveNamesTheCredentialLocations(t *testing.T) {
 			t.Errorf("Sensitive(~/%s) = \"\", want a reason", rel)
 		}
 	}
-	for _, p := range []string{filepath.Join(home, "Downloads", "meeting.m4a"), "/private/tmp/x.m4a"} {
+	// The Local policy: a credential name outside your home is not a secret of
+	// yours — an evidence copy, a project's .npmrc (the Outbound policy would
+	// refuse these).
+	for _, p := range []string{filepath.Join(home, "Downloads", "meeting.m4a"), "/private/tmp/x.m4a",
+		"/srv/evidence/home/bob/.ssh/id_rsa", "/srv/app/.npmrc", "/srv/x/credentials.json"} {
 		if why := Sensitive(p); why != "" {
 			t.Errorf("Sensitive(%q) = %q, want it accepted", p, why)
 		}
