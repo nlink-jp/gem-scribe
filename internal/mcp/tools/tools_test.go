@@ -72,9 +72,10 @@ func newHarness(t *testing.T) *harness {
 
 	fake := &fakeTranscriber{result: sampleTranscript()}
 	srv := mcpserver.New("gem-scribe", "test", nil, nil)
+	resolver := workdir.NewResolver(t.TempDir())
 	Register(srv, &Deps{
-		WS:         workspace.NewManager(),
-		WorkDir:    workdir.NewResolver(t.TempDir()),
+		WS:         workspace.NewManager(resolver.CheckBeneath),
+		WorkDir:    resolver,
 		Transcribe: fake,
 		Jobs:       job.NewManager(context.Background()),
 	})

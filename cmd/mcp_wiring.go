@@ -21,9 +21,10 @@ import (
 // ctx is the server-lifetime context: a transcription outlives the tool call
 // that started it but must stop on shutdown.
 func newToolDeps(ctx context.Context, cfg *config.Config) *tools.Deps {
+	wd := workDirResolver()
 	return &tools.Deps{
-		WS:         workspace.NewManager(),
-		WorkDir:    workDirResolver(),
+		WS:         workspace.NewManager(wd.CheckBeneath),
+		WorkDir:    wd,
 		Transcribe: newMCPTranscriber(cfg),
 		Jobs:       job.NewManager(ctx),
 	}

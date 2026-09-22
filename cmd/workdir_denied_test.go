@@ -87,3 +87,16 @@ func TestWorkDirAcceptsOrdinaryDir(t *testing.T) {
 		t.Errorf("Validate = %q, want the symlink-resolved %q", got, want)
 	}
 }
+
+// The wired workspace manager judges the directory a call actually uses:
+// work_dir=~/.config with workspace_id=gh would land in ~/.config/gh.
+func TestTheWiredWorkspacesRefuseACredentialDirectoryBeneathAWorkDir(t *testing.T) {
+	serverWorkDir(t) // HOME is a directory this test owns, with ~/.config in it
+	cfg := filepath.Join(os.Getenv("HOME"), ".config")
+	ws := newToolDeps(context.Background(), &config.Config{}).WS
+	_, err := ws.EnsureUnder(cfg, "gh")
+	var te *toolerr.Error
+	if !errors.As(err, &te) || te.Code != toolerr.CodeWorkDirDenied {
+		t.Errorf("EnsureUnder(~/.config, gh) = %v, want %s", err, toolerr.CodeWorkDirDenied)
+	}
+}

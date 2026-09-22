@@ -41,7 +41,7 @@ func TestResolveInsideRejectsEscape(t *testing.T) {
 }
 
 func TestEnsureUnderWorkDir(t *testing.T) {
-	m := NewManager()
+	m := NewManager(allowAll)
 	work := t.TempDir()
 	w, err := m.EnsureUnder(work, "proj")
 	if err != nil {
@@ -61,7 +61,7 @@ func TestEnsureUnderWorkDir(t *testing.T) {
 }
 
 func TestEnsureUnderRejectsRelativeWorkDir(t *testing.T) {
-	m := NewManager()
+	m := NewManager(allowAll)
 	if _, err := m.EnsureUnder("relative/dir", "proj"); !errors.Is(err, toolerr.New(toolerr.CodeWorkDirInvalid, "")) {
 		t.Errorf("relative work_dir: %v, want work_dir_invalid", err)
 	}
@@ -72,7 +72,7 @@ func TestEnsureUnderRejectsRelativeWorkDir(t *testing.T) {
 // transcript somewhere the caller is not looking — the failure this contract
 // exists to remove (ADR-0002).
 func TestEnsureUnderDoesNotConjureTheWorkDir(t *testing.T) {
-	m := NewManager()
+	m := NewManager(allowAll)
 	missing := filepath.Join(t.TempDir(), "not-there")
 	if _, err := m.EnsureUnder(missing, "proj"); err == nil {
 		t.Fatal("EnsureUnder under a missing work_dir succeeded")
@@ -83,7 +83,7 @@ func TestEnsureUnderDoesNotConjureTheWorkDir(t *testing.T) {
 }
 
 func TestVerifyRegularSymlinkRejected(t *testing.T) {
-	m := NewManager()
+	m := NewManager(allowAll)
 	w, err := m.EnsureUnder(t.TempDir(), "proj")
 	if err != nil {
 		t.Fatal(err)
@@ -114,7 +114,7 @@ func TestVerifyRegularSymlinkRejected(t *testing.T) {
 }
 
 func TestReadFileSymlinkEscapeRejected(t *testing.T) {
-	m := NewManager()
+	m := NewManager(allowAll)
 	w, err := m.EnsureUnder(t.TempDir(), "proj")
 	if err != nil {
 		t.Fatal(err)

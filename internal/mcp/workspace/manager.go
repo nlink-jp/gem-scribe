@@ -199,10 +199,16 @@ func (w *Workspace) VerifyRegular(rel string) error {
 
 // Manager materializes workspaces under the work directory a call names.
 // It holds no default root of its own — see the package comment.
-type Manager struct{}
+type Manager struct {
+	check func(dir string) error
+}
 
-// NewManager returns a Manager.
-func NewManager() *Manager { return &Manager{} }
+// NewManager returns a Manager. check judges <work_dir>/<workspace_id> — the
+// directory actually used — before it is made or used: validating work_dir
+// alone let work_dir=~/.config with workspace_id=gh land in ~/.config/gh. It
+// is workdir.Resolver.CheckBeneath in the server; a Manager without one
+// refuses every workspace.
+func NewManager(check func(dir string) error) *Manager { return &Manager{check: check} }
 
 // EnsureUnder materializes <workDir>/<id> and its output/ subdirectory
 // (idempotent). workDir must be an absolute path to an existing directory the
@@ -217,6 +223,13 @@ func (m *Manager) EnsureUnder(workDir, id string) (*Workspace, error) {
 		return nil, err
 	}
 	workDir = filepath.Clean(workDir)
+	if m == nil || m.check == nil {
+		return nil, toolerr.New(toolerr.CodeWorkDirDenied,
+			"this server's workspace check was not set up (workspace.NewManager)")
+	}
+	if err := m.check(filepath.Join(workDir, id)); err != nil {
+		return nil, err
+	}
 	if err := makeBaseDir(workDir, id); err != nil {
 		return nil, err
 	}

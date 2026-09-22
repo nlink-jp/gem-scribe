@@ -20,7 +20,7 @@ import (
 func registeredServer(t *testing.T) *mcpserver.Server {
 	t.Helper()
 	srv := mcpserver.New("gem-scribe", "test", nil, nil)
-	Register(srv, &Deps{WS: workspace.NewManager()})
+	Register(srv, &Deps{WS: workspace.NewManager(nil)})
 	// The floor under every per-tool loop: with no tools registered, each
 	// contract would pass without having examined anything.
 	if len(srv.Tools()) == 0 {
