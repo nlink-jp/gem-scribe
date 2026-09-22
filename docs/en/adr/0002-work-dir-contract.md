@@ -1,6 +1,7 @@
 # ADR-0002: Take the work directory as a per-call `work_dir`, with no default root
 
-> Status: Accepted
+> Status: Accepted — its implementation (the checks and the read blacklist) is replaced by
+> ADR-0004 (nlink-jp/pathguard)
 > Date: 2026-09-13
 
 ## Context

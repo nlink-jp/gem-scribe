@@ -1,6 +1,7 @@
 # ADR-0002: work dir は呼び出しごとの `work_dir` で受け取り、既定ルートを持たない
 
-> Status: Accepted
+> Status: Accepted —— その実装（検査と読み取りのブラックリスト）は ADR-0004（nlink-jp/pathguard）で
+> 置き換えた
 > Date: 2026-09-13
 
 ## 背景

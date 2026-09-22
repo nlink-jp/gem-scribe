@@ -19,7 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `~/.terraform.d`, `~/.gemini`, `~/.config/mcp-bridge`, `~/.netrc`, `~/.npmrc`,
   `~/.pypirc`, `~/.git-credentials`, `~/.vault-token`, `~/.docker/config.json`,
   `~/.claude.json`, `~/.bash_history`, `~/.zsh_history` — and every spelling of
-  any refused place (another case, a link, a firmlink). Linux `/etc` is refused
+  any refused place (another case, a link, a firmlink), and wherever a link
+  directly inside one of those directories points (a `~/.ssh/config` that links
+  into a sync folder protects the file it points at). When `$HOME` names another
+  directory than the account's home, both are protected. Linux `/etc` is refused
   as a `work_dir`.
 - `transcribe` now **accepts** `.env.example`, `.env.sample`, `.env.template` and
   `.env.dist` as audio paths (templates, not secrets).

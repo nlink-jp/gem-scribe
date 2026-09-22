@@ -39,9 +39,11 @@ ADR-0002 以来、`work_dir` の検証と、読み取りのブラックリスト
   （`~/.kube`、`~/.config/gh`、`~/.azure`、`~/.terraform.d`、`~/.gemini`、`~/.config/mcp-bridge`、
   `~/.netrc`、`~/.npmrc`、`~/.pypirc`、`~/.git-credentials`、`~/.vault-token`、`~/.docker/config.json`、
   `~/.claude.json`、`~/.bash_history`、`~/.zsh_history`）。床のどの場所についても、大文字小文字の違い・
-  リンク・ファームリンクなど、あらゆる綴り。Linux の `/etc` を `work_dir` にすること。
+  リンク・ファームリンクなど、あらゆる綴り。それらのディレクトリの直下にあるリンクの指す先（同期フォルダへの
+  リンクになった `~/.ssh/config` なら、その指す先のファイル）。`$HOME` がアカウントのホームと違うときは、
+  両方を守る。Linux の `/etc` を `work_dir` にすること。
 - **新たに通す**: `.env.example`、`.env.sample`、`.env.template`、`.env.dist`（ひな形であって秘密ではない）。
-- **ホームが分からなければ拒む**。以前はすべてを通していた。
+- **ホームが分からなければ、音声のパスもどの `work_dir` も拒む**。以前はすべてを通していた。
 - `work_dir_denied` の `details` に `reason` が加わる。
 - 1 回の検査は約 2 ms（pathguard の実測）。文字起こしの時間に比べて無視できる。
 

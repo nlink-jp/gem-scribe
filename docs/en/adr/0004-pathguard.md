@@ -44,10 +44,12 @@ lagent's.
   `~/.config/gh`, `~/.azure`, `~/.terraform.d`, `~/.gemini`, `~/.config/mcp-bridge`, `~/.netrc`,
   `~/.npmrc`, `~/.pypirc`, `~/.git-credentials`, `~/.vault-token`, `~/.docker/config.json`,
   `~/.claude.json`, `~/.bash_history`, `~/.zsh_history`); every spelling of any floor place — case
-  variants, links, firmlinks; Linux `/etc` as a `work_dir`.
+  variants, links, firmlinks; wherever a link directly inside one of those directories points (a
+  `~/.ssh/config` that links into a sync folder protects the file it points at); when `$HOME` names
+  another directory than the account's home, both; Linux `/etc` as a `work_dir`.
 - **Accepted now**: `.env.example`, `.env.sample`, `.env.template`, `.env.dist` (templates, not
   secrets).
-- **An unknown home refuses.** It used to pass everything.
+- **An unknown home refuses audio paths and every `work_dir`.** It used to pass everything.
 - `work_dir_denied` carries `reason` in its `details`.
 - One check costs about 2 ms (measured in pathguard) — nothing next to a transcription.
 
