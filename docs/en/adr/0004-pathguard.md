@@ -55,6 +55,19 @@ lagent's.
 
 With no copy here, a fix to the judgement is a pathguard release and a one-line dependency update.
 
+## Amendment (2026-09-22, v0.5.1): judge the directory actually used
+
+Only `work_dir` was checked, so `work_dir=~/.config` with `workspace_id=gh` made the workspace
+`~/.config/gh` — a credential directory — and transcripts were written into it. The hole dates from
+the ADR-0002 copy; image-forge's independent review found it.
+
+- `workspace.NewManager(check)` takes the judgement as a required argument, and `EnsureUnder` judges
+  `<work_dir>/<workspace_id>` before making or using it. The server passes
+  `workdir.Resolver.CheckBeneath` (pathguard v0.2.0); a Manager without one refuses every workspace.
+  The wiring is one function, `newToolDeps`, which the tests use.
+- pathguard v0.2.0 also refuses a path holding a NUL byte (a path handed to C ends at the NUL, so the
+  judged string and the opened one differ).
+
 ## References
 
 - Organization ADR-021 (the work-dir contract of the file-mediated MCP servers)

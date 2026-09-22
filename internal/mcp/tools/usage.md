@@ -156,7 +156,7 @@ Every failure carries a stable `code`. Branch on the code, not the prose.
 | `work_dir_invalid` | Not absolute, started with `~`, or contained `..` | Pass the path you mean, spelled out |
 | `work_dir_not_found` | Not there, or not a directory | It is your directory, so this is a typo — the server does not create it |
 | `work_dir_not_writable` | The server cannot write there | Pass a directory you own |
-| `work_dir_denied` | A system location, your home directory itself, a credential or agent-control location (or where a link directly inside one points), this server's own config directory (`~/.config/gem-scribe`), or the home directory cannot be determined — `details.reason` says which: `system_dir`, `home_dir`, `sensitive_path`, `server_dir`, `home_unknown`, `unconfigured`, `unresolvable_path` | Pass your session or working directory |
+| `work_dir_denied` | A system location, your home directory itself, a credential or agent-control location (or where a link directly inside one points), this server's own config directory (`~/.config/gem-scribe`), or the home directory cannot be determined — for `work_dir`, and for the workspace directory `<work_dir>/<workspace_id>` it would use — `details.reason` says which: `system_dir`, `home_dir`, `sensitive_path`, `server_dir`, `home_unknown`, `unconfigured`, `unresolvable_path` | Pass your session or working directory |
 | `workspace_failed` | The workspace could not be created or read | Check the root exists and is writable |
 | `input_not_found` | The recording is not in the workspace | Put the file there first; the server does not fetch |
 | `unsupported_format` | Not an audio container the model reads | Convert to wav, mp3, m4a, flac, ogg, opus, aiff or webm |

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Security
+
+- **The workspace directory is judged, not only `work_dir`.** `work_dir=~/.config`
+  with `workspace_id=gh` made the workspace `~/.config/gh`, a credential
+  directory, and transcripts were written into it. `<work_dir>/<workspace_id>`
+  is now refused with `work_dir_denied` wherever `work_dir` itself would be.
+  The hole was present since the work-directory contract (ADR-0002).
+- A path holding a NUL byte is refused (pathguard v0.2.0).
+
 ## [0.5.0] - 2026-09-22
 
 ### Changed

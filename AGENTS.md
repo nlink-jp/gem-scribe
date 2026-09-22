@@ -120,6 +120,11 @@ Everything here was measured, not assumed.
   transcripts go under the caller's `work_dir` and staged audio goes to Cloud
   Storage. A zero `workdir.Resolver{}` refuses every call, and so does an empty
   server directory — tests build one with `workdir.NewResolver(t.TempDir())`.
+- **The workspace directory is judged too.** `workspace.NewManager(check)`
+  takes `workdir.Resolver.CheckBeneath`, and `EnsureUnder` judges
+  `<work_dir>/<workspace_id>` before making it — `work_dir=~/.config` with
+  `workspace_id=gh` is `~/.config/gh`. `newToolDeps` wires both; a Manager
+  without a check refuses every workspace.
 
 ## Testing notes
 
