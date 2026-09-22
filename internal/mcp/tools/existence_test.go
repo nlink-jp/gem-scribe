@@ -25,8 +25,10 @@ import (
 // secrets exist (knowledge: security.md, "Compare places by identity, not by
 // name").
 //
-// The layer observed is the tool call, the answer a caller receives; the home
-// directory is a temporary one, so no real credential directory is touched.
+// The layer observed is the tool call, the answer a caller receives. The home
+// directory is a temporary one: nothing is created, read or written in a real
+// credential directory (pathguard still lists the account's own, for the links
+// inside them).
 func TestExistenceIsNotRevealed(t *testing.T) {
 	base := realDir(t, t.TempDir())
 	home := filepath.Join(base, "home")
@@ -51,6 +53,8 @@ func TestExistenceIsNotRevealed(t *testing.T) {
 	symlink(t, filepath.Join(home, ".aws"), filepath.Join(work, "lnk_dir"))
 	symlink(t, filepath.Join(home, ".aws", "ws_planted.m4a"), filepath.Join(work, "default", "lnk_ws"))
 	symlink(t, filepath.Join(home, ".aws"), filepath.Join(work, "default", "lnk_wsdir"))
+	symlink(t, filepath.Join(work, "chain1"), filepath.Join(work, "chain0"))
+	symlink(t, filepath.Join(home, ".aws", "chain.m4a"), filepath.Join(work, "chain1"))
 
 	h := harnessWithData(t, data)
 	answer := func(workDir, audio string) string {
@@ -75,25 +79,34 @@ func TestExistenceIsNotRevealed(t *testing.T) {
 		workDir, arg string
 		leaf         string // the file that exists for one answer and not the other
 		refused      bool   // the path is on the floor: both answers must refuse it
+		link         string // when set, leaf is a link to this rather than a file
 	}{
-		{"absolute, in a credential directory", work, filepath.Join(home, ".aws", "rec.m4a"), filepath.Join(home, ".aws", "rec.m4a"), true},
-		{"absolute, through a dotfiles-linked ~/.config", work, filepath.Join(home, ".config", "gcloud", "rec.m4a"), filepath.Join(dot, "gcloud", "rec.m4a"), true},
-		{"absolute, a credential file", work, filepath.Join(home, ".docker", "config.json"), filepath.Join(home, ".docker", "config.json"), true},
-		{"absolute, a planted link to a credential file", work, filepath.Join(work, "lnk_file"), filepath.Join(home, ".aws", "planted.m4a"), true},
-		{"absolute, through a planted link to a credential directory", work, filepath.Join(work, "lnk_dir", "via.m4a"), filepath.Join(home, ".aws", "via.m4a"), true},
-		{"absolute, where a link in ~/.ssh leads", work, filepath.Join(sync, "ssh_config"), filepath.Join(sync, "ssh_config"), true},
-		{"absolute, a .env file", work, filepath.Join(other, ".env"), filepath.Join(other, ".env"), true},
-		{"relative, in a credential directory under work_dir", filepath.Join(home, ".config"), filepath.Join("gcloud", "rel.m4a"), filepath.Join(dot, "gcloud", "rel.m4a"), true},
-		{"relative, through a link planted in work_dir", work, filepath.Join("lnk_dir", "rel.m4a"), filepath.Join(home, ".aws", "rel.m4a"), true},
-		{"relative, a .env file in work_dir", work, filepath.Join("sub", ".env"), filepath.Join(work, "sub", ".env"), true},
-		{"relative, a .env file in the workspace", work, filepath.Join("wsub", ".env"), filepath.Join(work, "default", "wsub", ".env"), true},
-		{"relative, a link planted in the workspace", work, "lnk_ws", filepath.Join(home, ".aws", "ws_planted.m4a"), false},
-		{"relative, through a directory link planted in the workspace", work, filepath.Join("lnk_wsdir", "x.m4a"), filepath.Join(home, ".aws", "x.m4a"), false},
-		{"the did-you-mean hint, a credential file", filepath.Join(home, ".docker"), filepath.Join(other, "nowhere", "config.json"), filepath.Join(home, ".docker", "config.json"), false},
-		{"a .env file named where none is, with one in work_dir", work, filepath.Join(other, "nowhere", ".env"), filepath.Join(work, ".env"), false},
+		{"absolute, in a credential directory", work, filepath.Join(home, ".aws", "rec.m4a"), filepath.Join(home, ".aws", "rec.m4a"), true, ""},
+		{"absolute, through a dotfiles-linked ~/.config", work, filepath.Join(home, ".config", "gcloud", "rec.m4a"), filepath.Join(dot, "gcloud", "rec.m4a"), true, ""},
+		{"absolute, a credential file", work, filepath.Join(home, ".docker", "config.json"), filepath.Join(home, ".docker", "config.json"), true, ""},
+		{"absolute, a planted link to a credential file", work, filepath.Join(work, "lnk_file"), filepath.Join(home, ".aws", "planted.m4a"), true, ""},
+		{"absolute, through a planted link to a credential directory", work, filepath.Join(work, "lnk_dir", "via.m4a"), filepath.Join(home, ".aws", "via.m4a"), true, ""},
+		{"absolute, where a link in ~/.ssh leads", work, filepath.Join(sync, "ssh_config"), filepath.Join(sync, "ssh_config"), true, ""},
+		{"absolute, a .env file", work, filepath.Join(other, ".env"), filepath.Join(other, ".env"), true, ""},
+		{"relative, in a credential directory under work_dir", filepath.Join(home, ".config"), filepath.Join("gcloud", "rel.m4a"), filepath.Join(dot, "gcloud", "rel.m4a"), true, ""},
+		{"relative, through a link planted in work_dir", work, filepath.Join("lnk_dir", "rel.m4a"), filepath.Join(home, ".aws", "rel.m4a"), true, ""},
+		{"relative, a .env file in work_dir", work, filepath.Join("sub", ".env"), filepath.Join(work, "sub", ".env"), true, ""},
+		{"relative, a .env file in the workspace", work, filepath.Join("wsub", ".env"), filepath.Join(work, "default", "wsub", ".env"), true, ""},
+		{"relative, a link planted in the workspace", work, "lnk_ws", filepath.Join(home, ".aws", "ws_planted.m4a"), false, ""},
+		{"relative, through a directory link planted in the workspace", work, filepath.Join("lnk_wsdir", "x.m4a"), filepath.Join(home, ".aws", "x.m4a"), false, ""},
+		{"the did-you-mean hint, a credential file", filepath.Join(home, ".docker"), filepath.Join(other, "nowhere", "config.json"), filepath.Join(home, ".docker", "config.json"), false, ""},
+		{"a .env file named where none is, with one in work_dir", work, filepath.Join(other, "nowhere", ".env"), filepath.Join(work, ".env"), false, ""},
+		{"absolute, a credential entry that is a link", work, filepath.Join(home, ".ssh", "linked.m4a"), filepath.Join(home, ".ssh", "linked.m4a"), true, filepath.Join(sync, "deep", "linked.m4a")},
+		{"absolute, in a credential directory that is a link", work, filepath.Join(home, ".kube", "k.m4a"), filepath.Join(home, ".kube"), true, filepath.Join(dot, "kube")},
+		{"absolute, another case of a credential directory", work, filepath.Join(home, ".AWS", "case.m4a"), filepath.Join(home, ".aws", "case.m4a"), true, ""},
+		{"absolute, a chain of planted links", work, filepath.Join(work, "chain0"), filepath.Join(home, ".aws", "chain.m4a"), true, ""},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			writeFileAt(t, c.leaf)
+			if c.link != "" {
+				symlink(t, c.link, c.leaf)
+			} else {
+				writeFileAt(t, c.leaf)
+			}
 			e := answer(c.workDir, c.arg)
 			if err := os.Remove(c.leaf); err != nil {
 				t.Fatal(err)
