@@ -68,6 +68,38 @@ the ADR-0002 copy; image-forge's independent review found it.
 - pathguard v0.2.0 also refuses a path holding a NUL byte (a path handed to C ends at the NUL, so the
   judged string and the opened one differ).
 
+## Amendment (2026-09-22, v0.5.2): whether a file exists never changes the answer
+
+An absolute `audio` path was resolved with `filepath.EvalSymlinks` before the floor judged it, so a
+file in a credential location got `path_not_allowed` when it was there and `input_not_found` when it
+was not — the answer told the caller which secrets exist. The `work_dir` candidate of a relative name
+was looked at before it was judged too, the "there is a file of that name at …" hint named places the
+floor refuses (`~/.docker/config.json`), and a `.env` in the workspace got `unsupported_format` when
+present and was reported missing when not. It is the class the independent reviews of
+slack-mcp-extender and chrome-pilot-mcp found; here it was measured with the home directory redirected
+to a temporary one (14 of 16 pairs got different answers). The code is voice-scribe's, and so is the
+fix (voice-scribe ADR-0013, amendment).
+
+- Every place a recording may be read from is placed first (`workdir.Where`, the last of pathguard's
+  `Forms`: every link followed, a dangling one by its target — for a path that exists, what
+  `EvalSymlinks` returns). The floor (the Local policy) judges it there, as named and as placed
+  (`refusal`), and only then is existence asked. An absolute path, both candidates of a relative name
+  (the workspace, then `work_dir`) and the hint's candidates all go through that one judgement.
+- Existence is asked of the place (`EvalSymlinks(where)`), not re-walked from the spelling, which could
+  step through a component the place skipped (a file or a missing entry before a `..`) and answer for
+  what lies beyond it. When it resolves elsewhere than it was placed (it changed in between), it is
+  judged again there.
+- A path that does not resolve gets no branch of its own: in slack-mcp-extender each fix to such a
+  branch left another pair of answers apart.
+- `TestExistenceIsNotRevealed` calls the same path while a file is there and after it is removed and
+  compares the whole answer (code, message, details) — planted and dangling links, a dotfiles-linked
+  `~/.config` and the target of `~/.ssh/config` among the cases. `TestPlacementCorners` pins a link
+  climbing with `..` past a directory, a file and nothing, and a loop. Seven mutations (the old order,
+  a candidate left unjudged, the hint unfiltered, existence re-walked from the spelling, no placement)
+  all fail by assertion.
+- The known exception is slack-mcp-extender's: a hard link to a credential file made elsewhere is
+  refused by identity only while it exists. Whoever can make one already reaches the file.
+
 ## References
 
 - Organization ADR-021 (the work-dir contract of the file-mediated MCP servers)

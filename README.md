@@ -122,7 +122,8 @@ polls. Every call names `work_dir` — the absolute path of a directory the agen
 can read back — and the transcript is written under it; a recording may sit
 there or be named by an absolute path anywhere readable, read in place and never
 copied (credential and agent-control locations such as `~/.ssh` are refused
-under any spelling; [nlink-jp/pathguard](https://github.com/nlink-jp/pathguard)
+under any spelling and whether or not a file is there, so the answer never says
+which of them exist; [nlink-jp/pathguard](https://github.com/nlink-jp/pathguard)
 makes that judgement). A `work_dir`
 naming a system location, your home directory itself, a credential or
 agent-control location, or **this server's own config directory

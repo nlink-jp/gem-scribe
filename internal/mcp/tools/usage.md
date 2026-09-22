@@ -36,7 +36,9 @@ transcription project:
   list gem-agent and lagent use), and so is any `.env` file except its templates
   (`.env.example`, `.env.sample`, `.env.template`, `.env.dist`), and so is
   wherever a link directly inside one of those directories points — under any
-  spelling: another case, a link, the path as given or resolved.
+  spelling: another case, a link, the path as given or resolved. It is refused
+  whether or not a file is there, with the same answer either way, and a
+  relative name is judged at both places it may mean before either is looked at.
 - Every other path argument is **relative to the workspace** and cannot escape
   it. `..` is refused (`path_not_allowed`), and symlinks planted in the
   workspace cannot redirect the server outside it. The workspace directory
@@ -151,7 +153,7 @@ Every failure carries a stable `code`. Branch on the code, not the prose.
 | `missing_argument` | A required argument was absent | Supply it |
 | `invalid_arguments` | Unknown field, wrong type, or a bad `format` | Fix the call; unknown fields are rejected rather than ignored |
 | `invalid_workspace_id` | `workspace_id` is not `[a-zA-Z0-9_-]{1,64}` | Rename it |
-| `path_not_allowed` | A relative path pointed outside the workspace, the workspace directory was itself a symlink, or a recording resolved into a credential location | Use a workspace-relative path, a `workspace_id` that is a real directory under `work_dir`, or a recording somewhere ordinary |
+| `path_not_allowed` | A relative path pointed outside the workspace, the workspace directory was itself a symlink, or a recording (an absolute path, or a relative name at either place it may mean) is a credential or agent-control location or a `.env` file, whether or not it exists | Use a workspace-relative path, a `workspace_id` that is a real directory under `work_dir`, or a recording somewhere ordinary |
 | `work_dir_required` | No `work_dir` argument, and your runtime attached no hint | Pass the absolute path of a directory you can read back |
 | `work_dir_invalid` | Not absolute, started with `~`, or contained `..` | Pass the path you mean, spelled out |
 | `work_dir_not_found` | Not there, or not a directory | It is your directory, so this is a typo — the server does not create it |

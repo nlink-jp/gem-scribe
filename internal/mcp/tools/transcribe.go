@@ -201,11 +201,17 @@ func boolOr(v *bool, fallback bool) bool {
 // reads plus the name the default transcript is derived from.
 //
 // A relative path is workspace-relative, and os.Root keeps the read inside the
-// workspace. An absolute path is read where it lies: the caller could have
-// read it itself, and copying an hour of audio into the workspace to transcribe
-// it would be pure waste (org ADR-021 §7). What is refused is a credential or
-// agent-control location, checked on both spellings of the path — as given and
-// symlink-resolved — because either alone has a hole.
+// workspace; failing that, it is looked for in the work directory above it. An
+// absolute path is read where it lies: the caller could have read it itself,
+// and copying an hour of audio into the workspace to transcribe it would be
+// pure waste (org ADR-021 §7). What is refused is a credential or
+// agent-control location (pathguard's Local policy).
+//
+// Every place a name may mean is judged before anything asks whether a file is
+// there (refusal): a path that exists and one that does not get the same
+// answer, message and details included, so no answer tells the caller which
+// secrets exist. A path that does not resolve has no branch of its own; it is
+// placed like any other (workdir.Where) and judged at that place.
 func resolveAudio(ws *workspace.Workspace, audio string) (string, string, error) {
 	if audio == "" {
 		return "", "", toolerr.New(toolerr.CodeMissingArgument, "audio is required")
@@ -213,6 +219,9 @@ func resolveAudio(ws *workspace.Workspace, audio string) (string, string, error)
 	if !filepath.IsAbs(audio) {
 		rel, err := ws.ResolveInside(audio)
 		if err != nil {
+			return "", "", err
+		}
+		if _, err := refusal(ws.Path(rel)); err != nil {
 			return "", "", err
 		}
 		// The decoder cannot inherit os.Root, so the containment check happens
@@ -228,17 +237,25 @@ func resolveAudio(ws *workspace.Workspace, audio string) (string, string, error)
 		// that. The work directory is the caller's own and already validated,
 		// and an absolute path anywhere readable is accepted regardless
 		// (ADR-0010), so this costs no containment — only the ambiguity of two
-		// roots, which the workspace wins.
-		if alt := filepath.Join(filepath.Dir(ws.BaseDir), rel); fileExists(alt) {
-			if why := workdir.Sensitive(alt); why != "" {
-				return "", "", toolerr.Newf(toolerr.CodePathNotAllowed, "audio %q is refused: %s", alt, why)
-			}
+		// roots, which the workspace wins. It is judged before it is looked at,
+		// like every other place.
+		alt := filepath.Join(filepath.Dir(ws.BaseDir), rel)
+		if _, err := refusal(alt); err != nil {
+			return "", "", err
+		}
+		if fileExists(alt) {
 			return alt, filepath.Base(alt), nil
 		}
 		return "", "", wsErr
 	}
 
-	resolved, err := filepath.EvalSymlinks(audio)
+	where, err := refusal(audio)
+	if err != nil {
+		return "", "", err
+	}
+	// Only now: is it there? Asked of the place, not re-walked from the
+	// spelling, which could step through a component the place skipped.
+	resolved, err := filepath.EvalSymlinks(where)
 	if err != nil {
 		// An agent that guessed the wrong level guesses again unless the
 		// error points at the file it can see. A session on 2026-09-14 passed
@@ -252,9 +269,12 @@ func resolveAudio(ws *workspace.Workspace, audio string) (string, string, error)
 		return "", "", toolerr.Newf(toolerr.CodeInputNotFound,
 			"audio %q cannot be read: %v", audio, err)
 	}
-	if why := workdir.Sensitive(audio, resolved); why != "" {
-		return "", "", toolerr.Newf(toolerr.CodePathNotAllowed,
-			"audio %q is refused: %s", audio, why)
+	// It resolved somewhere other than it was placed: it changed in between.
+	// Judge where it now leads.
+	if resolved != where {
+		if why := workdir.Sensitive(audio, resolved); why != "" {
+			return "", "", toolerr.Newf(toolerr.CodePathNotAllowed, "audio %q is refused: %s", audio, why)
+		}
 	}
 	fi, err := os.Stat(resolved)
 	if err != nil {
@@ -265,6 +285,17 @@ func resolveAudio(ws *workspace.Workspace, audio string) (string, string, error)
 			"audio %q is not a regular file (mode %s)", audio, fi.Mode())
 	}
 	return resolved, filepath.Base(resolved), nil
+}
+
+// refusal places named (workdir.Where) and judges it there, as named and as
+// placed — the one judgement every place a recording may be read from goes
+// through, before anything asks whether a file is there. It returns the place.
+func refusal(named string) (string, error) {
+	where := workdir.Where(named)
+	if why := workdir.Sensitive(named, where); why != "" {
+		return where, toolerr.Newf(toolerr.CodePathNotAllowed, "audio %q is refused: %s", named, why)
+	}
+	return where, nil
 }
 
 // resolveOutput picks where the transcript is written: the caller's choice, or
@@ -332,10 +363,12 @@ func fileExists(path string) bool {
 // nearby looks for base in the workspace and in the work directory above it,
 // so an "it is not there" error can say where it actually is. It searches those
 // two directories only — never a tree walk, which would turn a typo into a
-// filesystem scan.
+// filesystem scan — and offers only a place the floor would let it read.
 func nearby(ws *workspace.Workspace, base string) string {
 	for _, cand := range []string{ws.Path(base), filepath.Join(filepath.Dir(ws.BaseDir), base)} {
-		if fileExists(cand) {
+		// A place the floor refuses is never offered: "there is a file of
+		// that name at ~/.docker/config.json" would say that it exists.
+		if _, err := refusal(cand); err == nil && fileExists(cand) {
 			return cand
 		}
 	}

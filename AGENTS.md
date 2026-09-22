@@ -125,6 +125,18 @@ Everything here was measured, not assumed.
   `<work_dir>/<workspace_id>` before making it — `work_dir=~/.config` with
   `workspace_id=gh` is `~/.config/gh`. `newToolDeps` wires both; a Manager
   without a check refuses every workspace.
+- **Whether a recording exists never changes the answer.** `resolveAudio`
+  places every path it may read — an absolute `audio`, both candidates of a
+  relative one (workspace, then `work_dir`), the did-you-mean hint's
+  candidates — with `workdir.Where` (the last of pathguard's forms) and judges
+  it there with `refusal` before anything asks whether a file exists; existence
+  is then asked of the place (`EvalSymlinks(where)`), not re-walked from the
+  spelling. Do not give a path that does not resolve a branch of its own, and
+  do not stat before `refusal` (ADR-0004, amendment v0.5.2). The code is
+  voice-scribe's; keep the two the same. `TestExistenceIsNotRevealed` compares
+  the whole answer for a path with and without its file;
+  `TestPlacementCorners` pins a link climbing past a file. Seven mutations of
+  the order were all caught by assertion.
 
 ## Testing notes
 
