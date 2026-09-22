@@ -77,15 +77,16 @@ was looked at before it was judged too, the "there is a file of that name at …
 floor refuses (`~/.docker/config.json`), and a `.env` in the workspace got `unsupported_format` when
 present and was reported missing when not. It is the class the independent reviews of
 slack-mcp-extender and chrome-pilot-mcp found; here it was measured with the home directory redirected
-to a temporary one (14 of 16 pairs got different answers). The code is voice-scribe's, and so is the
+to a temporary one (13 of 15 pairs got different answers). The code is voice-scribe's, and so is the
 fix (voice-scribe ADR-0013, amendment).
 
 - Every place a recording may be read from is placed first (`workdir.Where`, the last of pathguard's
   `Forms`: every link followed, a dangling one by its target — for a path that exists, what
   `EvalSymlinks` returns). The floor (the Local policy) judges it there, as named and as placed
   (`refusal`), and only then is existence asked. An absolute path, both candidates of a relative name
-  (the workspace, then `work_dir`) and the hint's candidates all go through that one judgement.
-- Existence is asked of the place (`EvalSymlinks(where)`), not re-walked from the spelling, which could
+  (the workspace, then `work_dir`, each judged before it is looked at) and the hint's candidates all go
+  through that one judgement.
+- For an absolute path, existence is asked of the place (`EvalSymlinks(where)`), not re-walked from the spelling, which could
   step through a component the place skipped (a file or a missing entry before a `..`) and answer for
   what lies beyond it. When it resolves elsewhere than it was placed (it changed in between), it is
   judged again there.
@@ -97,8 +98,20 @@ fix (voice-scribe ADR-0013, amendment).
   climbing with `..` past a directory, a file and nothing, and a loop. Seven mutations (the old order,
   a candidate left unjudged, the hint unfiltered, existence re-walked from the spelling, no placement)
   all fail by assertion.
-- The known exception is slack-mcp-extender's: a hard link to a credential file made elsewhere is
-  refused by identity only while it exists. Whoever can make one already reaches the file.
+- Known limits, all in pathguard and recorded for its next release:
+  - A `..` that climbs out through an entry of a credential directory — in the path, or in the target
+    of a planted link — is judged where it leads, not where it passes, so the answer can still show
+    whether that entry is a link and where its target lies: pathguard judges cleaned forms, not the
+    directories a walk passes through.
+  - The place is the last of pathguard's forms. When a chain of links comes back to a spelling already
+    met, that is an earlier hop rather than the end; every hop has been judged, so nothing unjudged is
+    opened, but a file reached that way can be reported missing or read from the earlier hop.
+    pathguard does not expose the final place.
+  - `work_dir` is validated by pathguard/workdir in the order organization ADR-022 §4 sets (not found
+    before denied), so a `work_dir` naming a credential directory is answered by whether it exists.
+  - A link target with a non-ASCII name spelled in another Unicode normalisation is found by identity
+    only while it exists (pathguard does not normalise), and so is a hard link to a credential file
+    made elsewhere. Whoever can make a hard link already reaches the file.
 
 ## References
 

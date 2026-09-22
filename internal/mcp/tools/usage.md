@@ -37,8 +37,8 @@ transcription project:
   (`.env.example`, `.env.sample`, `.env.template`, `.env.dist`), and so is
   wherever a link directly inside one of those directories points — under any
   spelling: another case, a link, the path as given or resolved. It is refused
-  whether or not a file is there, with the same answer either way, and a
-  relative name is judged at both places it may mean before either is looked at.
+  whether or not a file is there, with the same answer either way, and each
+  place a relative name may mean is judged before it is looked at.
 - Every other path argument is **relative to the workspace** and cannot escape
   it. `..` is refused (`path_not_allowed`), and symlinks planted in the
   workspace cannot redirect the server outside it. The workspace directory
