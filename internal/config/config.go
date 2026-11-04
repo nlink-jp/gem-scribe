@@ -12,7 +12,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/BurntSushi/toml"
+	"github.com/nlink-jp/toml"
 )
 
 // Built-in defaults.

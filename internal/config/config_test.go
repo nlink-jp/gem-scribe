@@ -150,6 +150,18 @@ func TestLoad_MalformedFile(t *testing.T) {
 	}
 }
 
+// A key the config does not know — a typo, or a setting from another tool —
+// is refused with its name rather than silently ignored, so a setting that
+// seems to do nothing cannot be one that was never read.
+func TestLoadRefusesUnknownKeys(t *testing.T) {
+	clearEnv(t)
+
+	_, err := Load(write(t, "[gcp]\nproject = \"p\"\n\n[staging]\nbukcet = \"b\"\n"))
+	if err == nil || !strings.Contains(err.Error(), "staging.bukcet") {
+		t.Fatalf("Load = %v, want an error naming staging.bukcet", err)
+	}
+}
+
 func TestRequireProject(t *testing.T) {
 	clearEnv(t)
 

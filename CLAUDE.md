@@ -36,4 +36,4 @@ use a fake transcriber and the parser tests use recorded responses.
 - `google.golang.org/genai` — Vertex AI SDK (needs ≥ v1.70.0 for `AudioTranscriptionConfig`)
 - `cloud.google.com/go/storage` — staging bucket
 - `github.com/spf13/cobra` — CLI framework
-- `github.com/BurntSushi/toml` — config file
+- `github.com/nlink-jp/toml` — config file (strict: an unknown key is an error)

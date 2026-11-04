@@ -145,7 +145,8 @@ work_dir は呼び出し側のものであり、サーバ自身のディレク�
 
 未設定時は `GOOGLE_CLOUD_PROJECT` / `GOOGLE_CLOUD_LOCATION` にフォールバックする。
 設定ファイル `~/.config/gem-scribe/config.toml` も使える
-（[config.example.toml](config.example.toml) 参照）。
+（[config.example.toml](config.example.toml) 参照）。設定ファイルにある知らないキー
+（打ち間違いなど）は黙って無視せず、そのキー名を示してエラーにする。
 
 音声は既定で inline 送信し、20MB を超えるファイルだけが staging バケットを必要と
 する。短い録音なら Cloud Storage の設定なしで使い始められる。staging したオブジェクトは

@@ -152,7 +152,8 @@ Register it with your client, for example:
 
 Falls back to `GOOGLE_CLOUD_PROJECT` / `GOOGLE_CLOUD_LOCATION`. A config file at
 `~/.config/gem-scribe/config.toml` works too — see
-[config.example.toml](config.example.toml).
+[config.example.toml](config.example.toml). A key the file does not know — a
+typo, say — is an error that names it, not a setting silently ignored.
 
 Audio is sent inline by default; only files above 20 MB need a staging bucket,
 so a short recording works before any Cloud Storage setup exists. Staged objects
