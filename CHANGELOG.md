@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.1] - 2026-11-14
+
+### Security
+
+- **`golang.org/x/net` is updated from v0.56.0 to v0.62.0, and the Go floor is
+  raised to 1.27.4** (it was 1.27.0). `govulncheck` reported five HTTP/2
+  advisories (GO-2026-6603, -6610, -6611, -6612, -6617) as reachable through
+  that module. Measured: built with Go 1.27, x/net v0.56.0 already hands the
+  connection to Vertex AI to the standard library — a request through the
+  same client against a local server was handled by `net/http/internal/http2`.
+  The same advisories apply there and are fixed in Go 1.27.2. The binaries of
+  v0.6.0 were built with Go 1.27.3, so no released build was exposed; what did
+  not guarantee that was `go.mod`, whose `go 1.27.0` accepted a toolchain that
+  has them.
+- `grpc` moves to v1.83.2, OpenTelemetry to v1.45.0, `x/text` to v0.43.0 and
+  `x/crypto` to v0.58.0, for advisories `govulncheck` traced through code
+  this build does not run. One advisory remains, against a package this
+  build does not import (`x/crypto/openpgp`, unmaintained, no fixed
+  release). The Vertex AI SDK is unchanged (v1.70.0).
+
+### Changed
+
+- **`make package` runs the vulnerability check first** (`make vuln`), so a
+  release cannot be built past a finding.
+
 ## [0.6.0] - 2026-11-04
 
 ### Changed
