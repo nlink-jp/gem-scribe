@@ -162,6 +162,12 @@ func registerTranscribe(srv *mcpserver.Server, d *Deps) {
 				return nil, toolerr.Newf(toolerr.CodeTranscribeFailed, "render transcript: %v", err)
 			}
 
+			// A job cancelled while it transcribed writes no transcript: no
+			// client is waiting for it (server-migration §5).
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+
 			// Subtitle formats split per language when a transcript carries
 			// more than one. The first file is the primary; the rest are
 			// written beside it and named in the result.

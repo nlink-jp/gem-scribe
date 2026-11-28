@@ -26,10 +26,16 @@ type fakeTranscriber struct {
 	result transcript.Result
 	err    error
 	seen   Request
+	// afterTranscribe, when set, runs before the result is returned: a test
+	// cancels the jobs there, as a server shutting down mid-job does.
+	afterTranscribe func()
 }
 
 func (f *fakeTranscriber) Transcribe(_ context.Context, req Request) (transcript.Result, error) {
 	f.seen = req
+	if f.afterTranscribe != nil {
+		f.afterTranscribe()
+	}
 	if f.err != nil {
 		return transcript.Result{}, f.err
 	}
@@ -55,6 +61,10 @@ type harness struct {
 	fake  *fakeTranscriber
 	root  string
 	audio string
+	// jobs and cancelJobs are the job manager and its ctx's cancel, as the
+	// server holds them.
+	jobs       *job.Manager
+	cancelJobs context.CancelFunc
 }
 
 func newHarness(t *testing.T) *harness {
@@ -73,18 +83,21 @@ func newHarness(t *testing.T) *harness {
 	fake := &fakeTranscriber{result: sampleTranscript()}
 	srv := mcpserver.New("gem-scribe", "test", nil, nil)
 	resolver := workdir.NewResolver(t.TempDir())
+	jobCtx, cancelJobs := context.WithCancel(context.Background())
+	t.Cleanup(cancelJobs)
+	jobs := job.NewManager(jobCtx)
 	Register(srv, &Deps{
 		WS:         workspace.NewManager(resolver.CheckBeneath),
 		WorkDir:    resolver,
 		Transcribe: fake,
-		Jobs:       job.NewManager(context.Background()),
+		Jobs:       jobs,
 	})
 	// The floor under every per-tool loop: with no tools registered, each
 	// contract would pass without having examined anything.
 	if len(srv.Tools()) == 0 {
 		t.Fatal("no tools are registered, so every per-tool contract would pass without examining one")
 	}
-	return &harness{srv: srv, fake: fake, root: root, audio: audio}
+	return &harness{srv: srv, fake: fake, root: root, audio: audio, jobs: jobs, cancelJobs: cancelJobs}
 }
 
 func (h *harness) call(t *testing.T, name string, args string) (any, error) {
@@ -149,6 +162,23 @@ func submit(t *testing.T, h *harness, args string) string {
 		t.Fatalf("no job_id in %v", m)
 	}
 	return id
+}
+
+// A job the server cancelled on its way out writes no transcript: no client
+// is waiting for it (server-migration §5).
+func TestTranscribe_ACancelledJobWritesNothing(t *testing.T) {
+	h := newHarness(t)
+	h.fake.afterTranscribe = h.cancelJobs
+	if _, err := h.call(t, "transcribe", `{"audio":"meeting.m4a"}`); err != nil {
+		t.Fatalf("transcribe: %v", err)
+	}
+	if !h.jobs.Wait(5 * time.Second) {
+		t.Fatal("the cancelled job did not end")
+	}
+	left, _ := filepath.Glob(filepath.Join(h.root, "default", "output", "*"))
+	if len(left) != 0 {
+		t.Errorf("a cancelled job wrote %v", left)
+	}
 }
 
 func TestTranscribe_WritesTheTranscriptAndReturnsItInline(t *testing.T) {
