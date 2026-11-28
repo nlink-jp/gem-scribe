@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -109,5 +110,24 @@ func TestMCPOpensWithTheModuleClient(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("the server did not end when stdin closed")
+	}
+}
+
+// fakeJobs records the order of the cancellation and the wait.
+type fakeJobs struct {
+	cancelled         bool
+	waitedAfterCancel bool
+}
+
+func (f *fakeJobs) Wait(time.Duration) bool { f.waitedAfterCancel = f.cancelled; return true }
+
+// On its way out the server cancels the jobs and then waits for them, so a
+// cancelled job's cleanup runs before the process exits or what it uses is
+// freed.
+func TestDrainJobsCancelsThenWaits(t *testing.T) {
+	f := &fakeJobs{}
+	drainJobs(func() { f.cancelled = true }, f, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if !f.cancelled || !f.waitedAfterCancel {
+		t.Errorf("cancelled %v, waited after the cancellation %v", f.cancelled, f.waitedAfterCancel)
 	}
 }

@@ -137,3 +137,51 @@ func TestQueuedState(t *testing.T) {
 	waitDone(t, m, blocker)
 	waitDone(t, m, queued)
 }
+
+// Wait returns once the running job has unwound after a cancellation, and
+// not before: a server waits for it before it exits or frees what the job
+// uses.
+func TestWaitReturnsAfterTheCancelledJobUnwinds(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	m := NewManager(ctx)
+	started, unwound := make(chan struct{}), make(chan struct{})
+	m.Submit(func(ctx context.Context, report func(Progress)) (any, error) {
+		close(started)
+		<-ctx.Done()
+		time.Sleep(100 * time.Millisecond) // cleanup after the cancellation
+		close(unwound)
+		return nil, ctx.Err()
+	})
+	<-started
+	if m.Wait(20 * time.Millisecond) {
+		t.Fatal("Wait returned while the ctx was still live")
+	}
+	cancel()
+	if !m.Wait(5 * time.Second) {
+		t.Fatal("Wait timed out after the cancellation")
+	}
+	select {
+	case <-unwound:
+	default:
+		t.Fatal("Wait returned before the job finished its cleanup")
+	}
+}
+
+// A job that ignores its cancellation does not hold the server forever.
+func TestWaitGivesUpAtItsTimeout(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	m := NewManager(ctx)
+	release := make(chan struct{})
+	defer close(release)
+	started := make(chan struct{})
+	m.Submit(func(context.Context, func(Progress)) (any, error) {
+		close(started)
+		<-release
+		return nil, nil
+	})
+	<-started
+	cancel()
+	if m.Wait(50 * time.Millisecond) {
+		t.Fatal("Wait reported a job that never returned as finished")
+	}
+}

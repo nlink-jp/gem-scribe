@@ -78,6 +78,9 @@ type Manager struct {
 	jobs  map[string]*jobState
 	queue chan *jobState
 	once  sync.Once
+	// done is closed when the worker has returned: its ctx was cancelled and
+	// the job it was running, if any, has finished unwinding.
+	done chan struct{}
 }
 
 // NewManager creates a job manager whose worker runs renders under ctx.
@@ -91,6 +94,7 @@ func NewManager(ctx context.Context) *Manager {
 		ctx:   ctx,
 		jobs:  make(map[string]*jobState),
 		queue: make(chan *jobState, 128),
+		done:  make(chan struct{}),
 	}
 	m.once.Do(func() { go m.worker() })
 	return m
@@ -117,6 +121,7 @@ func (m *Manager) Submit(run RunFunc) string {
 // worker processes queued jobs one at a time (FIFO), which is what bounds the
 // request rate a queue of jobs can produce.
 func (m *Manager) worker() {
+	defer close(m.done)
 	for {
 		select {
 		case <-m.ctx.Done():
@@ -126,6 +131,19 @@ func (m *Manager) worker() {
 			res, err := js.run(m.ctx, js.report)
 			js.finish(res, err)
 		}
+	}
+}
+
+// Wait waits up to timeout for the worker to return after the manager's ctx
+// was cancelled, and reports whether it did. A server calls it on its way
+// out, so a cancelled job finishes its own cleanup (a staged object deleted,
+// an engine left alone) before the process exits or the engine is freed.
+func (m *Manager) Wait(timeout time.Duration) bool {
+	select {
+	case <-m.done:
+		return true
+	case <-time.After(timeout):
+		return false
 	}
 }
 

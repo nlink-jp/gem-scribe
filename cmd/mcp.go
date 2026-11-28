@@ -3,9 +3,11 @@ package cmd
 import (
 	"context"
 	"io"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -58,14 +60,34 @@ func runMCP(cmd *cobra.Command, args []string) error {
 	// left to tell.
 	defer func() { _ = protocolOut.Close() }()
 
-	deps := newToolDeps(ctx, cfg)
+	// Jobs run under a ctx of their own beneath the server's, cancelled and
+	// drained once Serve returns (drainJobs).
+	jobCtx, cancelJobs := context.WithCancel(ctx)
+	deps := newToolDeps(jobCtx, cfg)
 
 	srv := mcpserver.New("gem-scribe", Version, transport.NewStdioTransport(mcpStdin, protocolOut), nil)
 	srv.SetInstructions(tools.Instructions)
 	tools.Register(srv, deps)
 
 	// Serve returns nil for EOF and for a signal's cancellation.
-	return srv.Serve(ctx)
+	err = srv.Serve(ctx)
+	drainJobs(cancelJobs, deps.Jobs, slog.Default())
+	return err
+}
+
+// jobDrain bounds how long the server waits, on its way out, for a cancelled
+// job to finish its own cleanup.
+const jobDrain = 30 * time.Second
+
+// drainJobs cancels the jobs and waits for the one running to unwind, so it
+// finishes its cleanup before the process exits or what it uses is freed. A
+// client that closed stdin can no longer collect a job's result, so EOF
+// cancels them as a signal does.
+func drainJobs(cancel context.CancelFunc, jobs interface{ Wait(time.Duration) bool }, logger *slog.Logger) {
+	cancel()
+	if !jobs.Wait(jobDrain) {
+		logger.Warn("a cancelled job did not finish within the drain bound", "bound", jobDrain)
+	}
 }
 
 // notifyContext is signal.NotifyContext, mcpStdin the process's stdin and
