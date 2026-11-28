@@ -60,6 +60,8 @@ repository:
   queue and the cancelled ctx, so it could take a queued job after the cancellation and start it. A job taken then is
   no longer started, with a test run 50 times.
 - **A job cancelled while it transcribed still wrote its transcript.** It now checks the ctx before writing.
+- **A job the server cancelled was recorded as a failure reading "context canceled".** It is now recorded as "the
+  job was cancelled: the server shut down while it ran".
 
 ## Consequences
 

@@ -57,6 +57,8 @@ voice-scribe・image-forge も同じ決定をする。家系の参照実装は d
   どちらも選びうるので、取り消しの後に待ち行列のジョブを取って始めることがあった。そのとき取ったジョブは、もう始めない
   （50 回まわす試験つき）。
 - **文字起こしの途中で取り消されたジョブが、文字起こしを書いていた。** 書く前に ctx を確かめるようにした。
+- **サーバが取り消したジョブを、「context canceled」という失敗として記録していた。** いまは「the job was cancelled: the
+  server shut down while it ran」と記録する。
 
 ## Consequences
 
