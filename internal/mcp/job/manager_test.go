@@ -3,6 +3,7 @@ package job
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -212,5 +213,23 @@ func TestAQueuedJobIsNotStartedAfterTheCancellation(t *testing.T) {
 		if ran.Load() {
 			t.Fatalf("run %d: the queued job started after the cancellation", i)
 		}
+	}
+}
+
+// A job the server cancelled is recorded as cancelled, not as a failure
+// reading "context canceled".
+func TestACancelledJobIsRecordedAsCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	m := NewManager(ctx)
+	id := m.Submit(func(ctx context.Context, report func(Progress)) (any, error) {
+		cancel()
+		return nil, ctx.Err()
+	})
+	if !m.Wait(5 * time.Second) {
+		t.Fatal("Wait timed out")
+	}
+	st, err := m.Get(id)
+	if err != nil || st.Error == nil || !strings.Contains(st.Error.Message, "the job was cancelled") {
+		t.Errorf("status = %+v, %v; want a cancelled job", st, err)
 	}
 }

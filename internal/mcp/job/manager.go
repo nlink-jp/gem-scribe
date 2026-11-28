@@ -181,9 +181,14 @@ func (js *jobState) finish(res any, err error) {
 	if err != nil {
 		js.state = StateError
 		var te *toolerr.Error
-		if errors.As(err, &te) {
+		switch {
+		case errors.As(err, &te):
 			js.err = te
-		} else {
+		case errors.Is(err, context.Canceled):
+			// Said as what it is: the server stopped the job on its way
+			// out, which is not a job that failed on its own.
+			js.err = toolerr.New(toolerr.CodeTranscribeFailed, "the job was cancelled: the server shut down while it ran")
+		default:
 			js.err = toolerr.New(toolerr.CodeTranscribeFailed, err.Error())
 		}
 		return
