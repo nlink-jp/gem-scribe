@@ -45,6 +45,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Requests piped in are still all answered before the server exits at end of
   input.
 
+### Fixed
+
+- A signal, or the end of input while a transcription ran, ended the process
+  before the job's cleanup, leaving the recording staged in Cloud Storage. The
+  server now cancels its jobs on its way out and waits for them, so the staged
+  object is deleted.
+
 ## [0.6.2] - 2026-11-24
 
 ### Changed

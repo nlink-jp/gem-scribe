@@ -166,7 +166,7 @@ func TestToolsOverTheProtocol(t *testing.T) {
 }
 
 // An unknown tool never reaches a handler: the protocol layer refuses it with
-// -32602 (server-migration §3).
+// -32602 (server-migration §4).
 func TestUnknownToolIsAProtocolError(t *testing.T) {
 	_, err := callTool(t, open(t, nil), "missing", nil, nil)
 	var e *mcp.Error
@@ -306,7 +306,7 @@ func TestCallsSentSideBySideAllWait(t *testing.T) {
 }
 
 // A handler that panics is answered -32603 by the protocol layer, and the
-// server goes on answering (server-migration §3).
+// server goes on answering (server-migration §4).
 func TestAPanicIsAnsweredAndServingGoesOn(t *testing.T) {
 	cl := open(t, func(s *Server) {
 		s.RegisterTool(Tool{Name: "boom", InputSchema: objSchema}, func(context.Context, json.RawMessage) (any, error) {

@@ -30,10 +30,10 @@ repository:
 2. **Transport (policy §2)**: `transport.NewStdioTransport(in, out)` stays as the holder of the two streams (`In`,
    `Out`); its 1 MiB `bufio.Scanner` and read/write code go. The claim on stdout (fd 1 pointed at stderr, the protocol
    on a private duplicate) is untouched. `internal/mcp/jsonrpc` goes.
-3. **Options (policy §4)**: `Workers` 1 (calls were served one at a time), `QueueDepth` 256. Without a logger of its
+3. **Options (policy §2)**: `Workers` 1 (calls were served one at a time), `QueueDepth` 256. Without a logger of its
    own, `New` logs Warn and above to stderr (it discarded them).
 4. **Signals (policy §2)**: The `mcp` subcommand handled no signal, so SIGINT and SIGTERM killed the process at once, a running transcription with it. They now cancel the server's ctx (`signal.NotifyContext`), and with it the job manager's, even mid-read; `Serve` returns within the module's shutdown grace (5 s).
-5. **Behaviour that changes (policy §3)**:
+5. **Behaviour that changes (policy §4)**:
    - An unknown tool is -32602 instead of -32601; `ping` gets `{}` instead of -32601.
    - `tools/*` before initialize is -32602, and so are `arguments` that is not an object.
    - A request with `"id":null` gets -32600 (it was silent, as a notification).
@@ -47,6 +47,15 @@ repository:
    not stop it; the synchronous tools only read. A signal cancels the jobs.
 7. **Dependency**: `github.com/nlink-jp/mcp` is added.
 8. **Version**: minor (v0.7.0).
+
+## Defects found (fixed in their own fix commit)
+
+- **A signal or the end of input left a staged recording in the bucket.** The `mcp` subcommand handled no signal, so
+  SIGINT and SIGTERM killed it mid-transcription; and at EOF the process exited while a job was still running. Either
+  way the job's deferred cleanup — deleting the recording it staged in Cloud Storage — never ran. Now the server
+  cancels its jobs once `Serve` returns, for a signal or for EOF (a client that closed stdin can no longer collect a
+  result), and waits up to 30 s for the running one to unwind, so the cleanup runs (`drainJobs`, `Manager.Wait`;
+  fixed in its own commit, with tests).
 
 ## Consequences
 

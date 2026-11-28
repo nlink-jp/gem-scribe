@@ -48,7 +48,7 @@ type Server struct {
 func New(name, version string, t *transport.StdioTransport, logger *slog.Logger) *Server {
 	if logger == nil {
 		// Warnings and above to stderr, as every migrated server logs them
-		// (server-migration §4); stdout belongs to the protocol.
+		// (server-migration §2); stdout belongs to the protocol.
 		logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
 	}
 	return &Server{
@@ -104,7 +104,7 @@ func (s *Server) Serve(ctx context.Context) error {
 		Instructions: s.instructions,
 	}, mcpsrv.Options{
 		// One call at a time, as before the module: the tools' shared state
-		// assumes it (server-migration §4).
+		// assumes it (server-migration §2).
 		Workers: 1,
 		// Calls sent side by side wait, as they did before the module: the
 		// default of 16 would refuse the 17th as "server busy".
