@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-28
+
 ### Added
 
 - **The MCP server speaks both eras of the protocol** (ADR-0005): the
