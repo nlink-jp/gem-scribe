@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **The MCP server speaks both eras of the protocol** (ADR-0005): the
+  2026-07-28 revision, whose clients probe with `server/discover`, as well as
+  the earlier `initialize` handshake (2025-11-25, 2025-06-18, 2024-11-05; it was
+  fixed at 2024-11-05). The protocol layer is now the organization's shared
+  module nlink-jp/mcp (organization ADR-030); the tools, their results and the
+  instructions are unchanged.
+
+### Changed
+
+- Protocol details of `gem-scribe mcp` now follow the module:
+  - an unknown tool is -32602 (it was -32601); `ping` is answered `{}` (it was
+    -32601);
+  - `tools/list`, `tools/call` and unknown methods before `initialize` are
+    refused with -32602;
+  - `arguments` that is not an object is refused with -32602;
+  - a request with `"id":null` gets -32600 (it was silent, as a notification);
+  - a line may be up to 16 MiB (it was 1 MiB); a longer one gets -32600 and
+    reading goes on (it stopped the server); a blank line is skipped (it got
+    -32700); a batch gets -32600; a line that is not JSON is answered
+    "parse error";
+  - a failed write to stdout stops the server (it was logged and reading went
+    on);
+  - a panic in a tool is answered -32603 and the server goes on (it ended the
+    process);
+  - up to 256 calls wait behind a running one; more are refused with -32603
+    "server busy";
+  - `notifications/cancelled` cancels a call, which is not answered; a job is
+    not cancelled with the call that submitted it;
+  - SIGINT and SIGTERM end the server even while it waits for input, within
+    the module's shutdown grace (5 s), cancelling the jobs in flight; the
+    subcommand handled no signal before, so a signal killed it at once;
+  - warnings from the protocol layer go to stderr (they were discarded).
+
+  Requests piped in are still all answered before the server exits at end of
+  input.
+
 ## [0.6.2] - 2026-11-24
 
 ### Changed

@@ -44,7 +44,7 @@ gem-scribe/
 │   ├── enrich/            ← second pass: translation and speaker naming, over text
 │   ├── staging/           ← inline-vs-GCS decision, upload and cleanup
 │   ├── transcript/        ← output envelope, formatters, diagnosis
-│   └── mcp/               ← jsonrpc, transport, mcpserver, job, workdir, workspace, tools
+│   └── mcp/               ← transport, mcpserver (thin layer over nlink-jp/mcp; ADR-0005), job, workdir, workspace, tools
 └── docs/{en,ja}/          ← RFP, ADRs
 ```
 
@@ -61,6 +61,13 @@ gem-scribe/
 
 Everything here was measured, not assumed.
 
+- **The MCP protocol is nlink-jp/mcp's** (ADR-0005, organization ADR-030
+  §6). Nothing outside the module handles `initialize` or `server/discover`;
+  tests open the server with the module's `client` and run its three probe
+  clients. An unknown tool is -32602 and a panic in a call -32603 — the
+  module's rules. SIGINT and SIGTERM cancel the server's ctx, and with it
+  the job manager's, even while it waits for input (the subcommand handled
+  no signal before, so a signal killed it mid-job).
 - **Containment: the workspace base is verified by real path, because the path
   is handed to code outside any root.** `os.Root` contains operations *within*
   the root but resolves the root path itself normally — measured: `os.OpenRoot`

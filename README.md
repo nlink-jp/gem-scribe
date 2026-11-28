@@ -140,6 +140,14 @@ Register it with your client, for example:
 { "mcpServers": { "gem-scribe": { "command": "gem-scribe", "args": ["mcp"] } } }
 ```
 
+The server speaks both eras of the MCP protocol: the 2026-07-28 revision
+(clients that probe with `server/discover`) and the earlier `initialize`
+handshake (2025-11-25, 2025-06-18, 2024-11-05), through the organization's
+module [nlink-jp/mcp](https://github.com/nlink-jp/mcp). SIGINT and SIGTERM
+stop it cleanly, cancelling the jobs in flight. Requests piped in are all
+answered before the server exits at end of input.
+([ADR-0005](docs/en/adr/0005-mcp-through-nlink-jp-mcp.md))
+
 ## Configuration
 
 | Variable | Default | Description |

@@ -133,6 +133,13 @@ work_dir は呼び出し側のものであり、サーバ自身のディレク�
 { "mcpServers": { "gem-scribe": { "command": "gem-scribe", "args": ["mcp"] } } }
 ```
 
+MCP の新旧両方の時代を話します。2026-07-28 版（`server/discover` で探る
+クライアント）と、それより前の `initialize` の握手（2025-11-25・2025-06-18・
+2024-11-05）を、組織の共通モジュール [nlink-jp/mcp](https://github.com/nlink-jp/mcp)
+で話します。SIGINT・SIGTERM で、動いているジョブを取り消してきれいに止まります。
+パイプで流し込んだ要求には、入力の終わりで終了する前にすべて答えます。
+（[ADR-0005](docs/ja/adr/0005-mcp-through-nlink-jp-mcp.ja.md)）
+
 ## 設定
 
 | 変数 | 既定 | 説明 |

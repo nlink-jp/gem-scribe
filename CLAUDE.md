@@ -33,6 +33,7 @@ use a fake transcriber and the parser tests use recorded responses.
 
 ## Key dependencies
 
+- `github.com/nlink-jp/mcp` — the MCP protocol, both eras (organization ADR-030; ADR-0005)
 - `google.golang.org/genai` — Vertex AI SDK (needs ≥ v1.70.0 for `AudioTranscriptionConfig`)
 - `cloud.google.com/go/storage` — staging bucket
 - `github.com/spf13/cobra` — CLI framework
