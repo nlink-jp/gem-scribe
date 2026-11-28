@@ -1,24 +1,23 @@
-// Package mcpserver implements the MCP stdio server: protocol handling for
-// initialize / notifications/initialized / tools/list / tools/call.
-//
-// Tool implementations live in internal/mcp/tools; the server only routes them
-// via the RegisterTool API.
+// Package mcpserver is the thin layer between the tools (internal/mcp/tools) and
+// the MCP protocol. The protocol itself — both eras (the legacy initialize
+// handshake and the 2026-07-28 revision), framing, versions, cancellation — is
+// the organization's module nlink-jp/mcp (organization ADR-030, ADR-0005);
+// this package keeps the registration API the tools use, the request `_meta`
+// they read, and the way their results become MCP content.
 package mcpserver
 
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"log/slog"
+	"os"
 
-	"github.com/nlink-jp/gem-scribe/internal/mcp/jsonrpc"
+	"github.com/nlink-jp/mcp"
+	mcpsrv "github.com/nlink-jp/mcp/server"
+
 	"github.com/nlink-jp/gem-scribe/internal/mcp/transport"
 )
-
-// ProtocolVersion is the MCP protocol version this server advertises.
-const ProtocolVersion = "2024-11-05"
 
 // Tool is a single MCP tool descriptor returned by tools/list.
 type Tool struct {
@@ -34,19 +33,23 @@ type ToolHandler func(ctx context.Context, args json.RawMessage) (any, error)
 
 // Server is the MCP stdio server.
 type Server struct {
-	name         string
-	version      string
+	name      string
+	version   string
+	tools     []Tool
+	handlers  map[string]ToolHandler
+	transport *transport.StdioTransport
+	logger    *slog.Logger
+	// instructions is returned when a client opens the server; see
+	// SetInstructions.
 	instructions string
-	tools        []Tool
-	handlers     map[string]ToolHandler
-	transport    *transport.StdioTransport
-	logger       *slog.Logger
 }
 
 // New creates a server bound to the given transport.
 func New(name, version string, t *transport.StdioTransport, logger *slog.Logger) *Server {
 	if logger == nil {
-		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+		// Warnings and above to stderr, as every migrated server logs them
+		// (server-migration §4); stdout belongs to the protocol.
+		logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
 	}
 	return &Server{
 		name:      name,
@@ -84,73 +87,41 @@ func (s *Server) Call(ctx context.Context, name string, args json.RawMessage) (a
 	return h(ctx, args)
 }
 
-// Serve reads requests in a loop until ctx is canceled or stdin returns EOF.
+// SetInstructions sets the server-usage hint returned when a client opens the
+// server (initialize, or server/discover in the modern era). Must be called
+// before Serve.
+func (s *Server) SetInstructions(text string) {
+	s.instructions = text
+}
+
+// Serve registers the tools on a fresh protocol server and serves the
+// transport's streams until stdin reaches EOF (answering every request that
+// arrived), ctx is cancelled, or a write fails. It returns nil for EOF and
+// cancellation.
 func (s *Server) Serve(ctx context.Context) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-		line, err := s.transport.ReadMessage()
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
-		if err != nil {
+	ts, err := mcpsrv.New(mcpsrv.Info{
+		Server:       mcp.Implementation{Name: s.name, Version: s.version},
+		Instructions: s.instructions,
+	}, mcpsrv.Options{
+		// One call at a time, as before the module: the tools' shared state
+		// assumes it (server-migration §4).
+		Workers: 1,
+		// Calls sent side by side wait, as they did before the module: the
+		// default of 16 would refuse the 17th as "server busy".
+		QueueDepth: 256,
+		Logger:     s.logger,
+	})
+	if err != nil {
+		return err
+	}
+	for _, t := range s.tools {
+		h := s.handlers[t.Name]
+		if err := ts.AddTool(mcpsrv.Tool{Name: t.Name, Description: t.Description, InputSchema: t.InputSchema},
+			func(ctx context.Context, req *mcpsrv.Request) (*mcpsrv.Result, error) {
+				return call(ctx, h, req.Name, req.Arguments, req.Meta)
+			}); err != nil {
 			return err
 		}
-		if err := s.handle(ctx, line); err != nil {
-			// handle() always either replies or (for notifications) intentionally
-			// stays silent. An error here means the write itself failed; log and
-			// continue.
-			s.logger.Warn("handle write failed", "err", err)
-		}
 	}
-}
-
-func (s *Server) handle(ctx context.Context, line []byte) error {
-	var req jsonrpc.Request
-	if err := json.Unmarshal(line, &req); err != nil {
-		return s.writeError(nil, jsonrpc.CodeParseError, "parse error: "+err.Error())
-	}
-	if req.JSONRPC != "2.0" {
-		return s.writeError(req.ID, jsonrpc.CodeInvalidRequest, "invalid jsonrpc version: "+req.JSONRPC)
-	}
-
-	// Notifications (no ID) do not produce a response per JSON-RPC spec.
-	if req.IsNotification() {
-		// Accept and discard: e.g. notifications/initialized.
-		return nil
-	}
-
-	switch req.Method {
-	case "initialize":
-		return s.handleInitialize(req)
-	case "tools/list":
-		return s.handleToolsList(req)
-	case "tools/call":
-		return s.handleToolsCall(ctx, req)
-	default:
-		return s.writeError(req.ID, jsonrpc.CodeMethodNotFound, "method not found: "+req.Method)
-	}
-}
-
-func (s *Server) writeResult(id *json.RawMessage, result any) error {
-	rb, err := json.Marshal(result)
-	if err != nil {
-		return s.writeError(id, jsonrpc.CodeInternalError, "marshal result: "+err.Error())
-	}
-	return s.transport.WriteMessage(jsonrpc.Response{
-		JSONRPC: "2.0",
-		ID:      id,
-		Result:  rb,
-	})
-}
-
-func (s *Server) writeError(id *json.RawMessage, code int, msg string) error {
-	return s.transport.WriteMessage(jsonrpc.Response{
-		JSONRPC: "2.0",
-		ID:      id,
-		Error:   &jsonrpc.Error{Code: code, Message: msg},
-	})
+	return ts.Serve(ctx, s.transport.In(), s.transport.Out())
 }

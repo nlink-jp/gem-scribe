@@ -6,28 +6,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/nlink-jp/gem-scribe/internal/mcp/jsonrpc"
+	mcpsrv "github.com/nlink-jp/mcp/server"
+
 	"github.com/nlink-jp/gem-scribe/internal/mcp/toolerr"
 )
-
-type toolsListResult struct {
-	Tools []Tool `json:"tools"`
-}
-
-func (s *Server) handleToolsList(req jsonrpc.Request) error {
-	// Always return a non-nil slice so the JSON has [] not null.
-	tools := s.tools
-	if tools == nil {
-		tools = []Tool{}
-	}
-	return s.writeResult(req.ID, toolsListResult{Tools: tools})
-}
-
-type toolsCallParams struct {
-	Name      string                     `json:"name"`
-	Arguments json.RawMessage            `json:"arguments"`
-	Meta      map[string]json.RawMessage `json:"_meta"`
-}
 
 // metaCtxKey carries the request's `_meta` object to tool handlers.
 type metaCtxKey struct{}
@@ -51,7 +33,6 @@ func WithRequestMeta(ctx context.Context, meta map[string]json.RawMessage) conte
 // ContentBlock is one block in the tools/call result.content array.
 //
 // Text content uses Type="text" + Text.
-// Per MCP spec 2024-11-05.
 type ContentBlock struct {
 	Type     string `json:"type"`
 	Text     string `json:"text,omitempty"`
@@ -72,56 +53,54 @@ type toolsCallResult struct {
 	IsError bool           `json:"isError,omitempty"`
 }
 
-func (s *Server) handleToolsCall(ctx context.Context, req jsonrpc.Request) error {
-	var p toolsCallParams
-	if err := json.Unmarshal(req.Params, &p); err != nil {
-		return s.writeError(req.ID, jsonrpc.CodeInvalidParams, "invalid params: "+err.Error())
+// call runs one tool handler and turns what it returned into the protocol's
+// result: a RawResult's blocks verbatim, any other value JSON-marshalled into
+// one text block, and an error into an isError result (toolError). A handler
+// never makes this return a Go error unless the result cannot be encoded at
+// all; the protocol layer answers that -32603.
+func call(ctx context.Context, h ToolHandler, _ string, args json.RawMessage, meta map[string]json.RawMessage) (*mcpsrv.Result, error) {
+	if len(meta) > 0 {
+		ctx = WithRequestMeta(ctx, meta)
 	}
-	h, ok := s.handlers[p.Name]
-	if !ok {
-		return s.writeError(req.ID, jsonrpc.CodeMethodNotFound, "unknown tool: "+p.Name)
-	}
-	if len(p.Meta) > 0 {
-		ctx = WithRequestMeta(ctx, p.Meta)
-	}
-	out, err := h(ctx, p.Arguments)
+	out, err := h(ctx, args)
 	if err != nil {
-		return s.writeToolError(req, err)
+		return result(toolError(err))
 	}
-	// Rich-content path: handler returned a RawResult, take its content blocks
-	// verbatim.
 	if raw, ok := out.(RawResult); ok {
-		return s.writeResult(req.ID, toolsCallResult(raw))
+		return result(toolsCallResult(raw))
 	}
-	// Default path: JSON-marshal the return value into a single text block.
 	body, err := json.Marshal(out)
 	if err != nil {
-		return s.writeError(req.ID, jsonrpc.CodeInternalError, fmt.Sprintf("marshal tool result: %v", err))
+		return nil, fmt.Errorf("marshal tool result: %w", err)
 	}
-	return s.writeResult(req.ID, toolsCallResult{
-		Content: []ContentBlock{{Type: "text", Text: string(body)}},
-	})
+	return result(toolsCallResult{Content: []ContentBlock{{Type: "text", Text: string(body)}}})
 }
 
-// writeToolError emits a tool error per MCP convention: result with
+// result copies a tools/call payload into the protocol's shape.
+func result(r toolsCallResult) (*mcpsrv.Result, error) {
+	out := &mcpsrv.Result{IsError: r.IsError}
+	for _, b := range r.Content {
+		raw, err := json.Marshal(b)
+		if err != nil {
+			return nil, err
+		}
+		out.Content = append(out.Content, raw)
+	}
+	return out, nil
+}
+
+// toolError is a tool error per MCP convention: a result with
 // isError=true and a single text content block. If err is (or wraps) a
 // *toolerr.Error, the content carries the structured {code, message, details}
 // JSON so LLM clients can branch on the code. Otherwise the plain Error()
 // string is used.
-func (s *Server) writeToolError(req jsonrpc.Request, err error) error {
+func toolError(err error) toolsCallResult {
 	var te *toolerr.Error
 	if errors.As(err, &te) {
-		body, marshalErr := json.Marshal(te)
-		if marshalErr == nil {
-			return s.writeResult(req.ID, toolsCallResult{
-				IsError: true,
-				Content: []ContentBlock{{Type: "text", Text: string(body)}},
-			})
+		if body, marshalErr := json.Marshal(te); marshalErr == nil {
+			return toolsCallResult{IsError: true, Content: []ContentBlock{{Type: "text", Text: string(body)}}}
 		}
 		// Fall through to plain text on marshal failure.
 	}
-	return s.writeResult(req.ID, toolsCallResult{
-		IsError: true,
-		Content: []ContentBlock{{Type: "text", Text: err.Error()}},
-	})
+	return toolsCallResult{IsError: true, Content: []ContentBlock{{Type: "text", Text: err.Error()}}}
 }
