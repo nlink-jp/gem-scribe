@@ -128,6 +128,13 @@ func (m *Manager) worker() {
 			return
 		case js := <-m.queue:
 			js.start()
+			// A queued job and the cancellation can be ready together, and
+			// select picks either: a job taken after the cancellation is not
+			// started (its engine work could not be stopped once begun).
+			if err := m.ctx.Err(); err != nil {
+				js.finish(nil, err)
+				return
+			}
 			res, err := js.run(m.ctx, js.report)
 			js.finish(res, err)
 		}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -183,5 +184,33 @@ func TestWaitGivesUpAtItsTimeout(t *testing.T) {
 	cancel()
 	if m.Wait(50 * time.Millisecond) {
 		t.Fatal("Wait reported a job that never returned as finished")
+	}
+}
+
+// A job still queued when the manager is cancelled is never started, however
+// select orders the cancellation and the queue.
+func TestAQueuedJobIsNotStartedAfterTheCancellation(t *testing.T) {
+	for i := 0; i < 50; i++ {
+		ctx, cancel := context.WithCancel(context.Background())
+		m := NewManager(ctx)
+		started := make(chan struct{})
+		m.Submit(func(ctx context.Context, report func(Progress)) (any, error) {
+			close(started)
+			<-ctx.Done()
+			return nil, ctx.Err()
+		})
+		var ran atomic.Bool
+		m.Submit(func(context.Context, func(Progress)) (any, error) {
+			ran.Store(true)
+			return nil, nil
+		})
+		<-started
+		cancel()
+		if !m.Wait(5 * time.Second) {
+			t.Fatal("Wait timed out")
+		}
+		if ran.Load() {
+			t.Fatalf("run %d: the queued job started after the cancellation", i)
+		}
 	}
 }
