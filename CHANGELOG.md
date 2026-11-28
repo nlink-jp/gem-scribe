@@ -51,6 +51,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   before the job's cleanup, leaving the recording staged in Cloud Storage. The
   server now cancels its jobs on its way out and waits for them, so the staged
   object is deleted.
+- A job taken from the queue after the server's cancellation could still
+  start, and a job cancelled while it transcribed still wrote its transcript;
+  neither happens now.
 
 ## [0.6.2] - 2026-11-24
 

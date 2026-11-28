@@ -56,6 +56,10 @@ repository:
   cancels its jobs once `Serve` returns, for a signal or for EOF (a client that closed stdin can no longer collect a
   result), and waits up to 30 s for the running one to unwind, so the cleanup runs (`drainJobs`, `Manager.Wait`;
   fixed in its own commit, with tests).
+- **A job still queued could start after the cancellation.** The worker's `select` picks at random between a ready
+  queue and the cancelled ctx, so it could take a queued job after the cancellation and start it. A job taken then is
+  no longer started, with a test run 50 times.
+- **A job cancelled while it transcribed still wrote its transcript.** It now checks the ctx before writing.
 
 ## Consequences
 
